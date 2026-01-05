@@ -1,0 +1,46 @@
+{
+  "name": "Yaad - Personal Media Tracker",
+  "short_name": "Yaad",
+  "description": "Track your films, books, and videos in one place",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f1a",
+  "theme_color": "#4158e8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/icon-192.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["entertainment", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Add Media",
+      "short_name": "Add",
+      "description": "Add a new media to your library",
+      "url": "/add",
+      "icons": [{ "src": "/static/img/icon-add.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Catalogue",
+      "short_name": "Catalogue",
+      "description": "Browse your media library",
+      "url": "/catalogue",
+      "icons": [{ "src": "/static/img/icon-catalogue.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+    }
+  ]
+}

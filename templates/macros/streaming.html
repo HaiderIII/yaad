@@ -1,0 +1,99 @@
+{# Streaming provider button macros #}
+
+{# Get brand color classes for a streaming provider #}
+{% macro provider_colors(provider_name, is_primary=true) %}
+{%- if 'Netflix' in provider_name -%}
+bg-[#E50914] hover:bg-[#ff0a16] shadow-[#E50914]/25
+{%- elif 'Disney' in provider_name -%}
+bg-[#113CCF] hover:bg-[#1a4de0] shadow-[#113CCF]/25
+{%- elif 'Prime' in provider_name or 'Amazon' in provider_name -%}
+bg-[#00A8E1] hover:bg-[#00b8f5] shadow-[#00A8E1]/25
+{%- elif 'Canal' in provider_name or 'myCANAL' in provider_name -%}
+bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-white/30 shadow-white/10
+{%- elif 'Apple TV' in provider_name -%}
+bg-[#000000] hover:bg-[#1a1a1a] border border-white/30 shadow-white/10
+{%- elif provider_name == 'Max' or provider_name.startswith('Max ') -%}
+bg-[#002BE7] hover:bg-[#0035ff] shadow-[#002BE7]/25
+{%- elif 'Paramount' in provider_name -%}
+bg-[#0064FF] hover:bg-[#1a75ff] shadow-[#0064FF]/25
+{%- elif 'Hulu' in provider_name -%}
+bg-[#1CE783] hover:bg-[#2ff090] text-black shadow-[#1CE783]/25
+{%- elif 'Peacock' in provider_name -%}
+bg-[#000000] hover:bg-[#1a1a1a] border border-yellow-400/50 shadow-yellow-400/10
+{%- elif 'Crunchyroll' in provider_name -%}
+bg-[#F47521] hover:bg-[#ff8533] shadow-[#F47521]/25
+{%- elif 'OCS' in provider_name -%}
+bg-[#FF6B00] hover:bg-[#ff7a1a] shadow-[#FF6B00]/25
+{%- elif 'Molotov' in provider_name -%}
+bg-[#1E1E1E] hover:bg-[#2a2a2a] border border-blue-500/50 shadow-blue-500/10
+{%- elif 'Arte' in provider_name -%}
+bg-[#FA5000] hover:bg-[#ff6619] shadow-[#FA5000]/25
+{%- elif 'France' in provider_name -%}
+bg-[#0055A4] hover:bg-[#0066c4] shadow-[#0055A4]/25
+{%- elif 'ADN' in provider_name -%}
+bg-[#0033A0] hover:bg-[#0044c9] shadow-[#0033A0]/25
+{%- elif 'Salto' in provider_name -%}
+bg-gradient-to-r from-[#FF4E50] to-[#F9D423] shadow-[#FF4E50]/25
+{%- elif 'Starz' in provider_name -%}
+bg-[#000000] hover:bg-[#1a1a1a] border border-[#FFD700]/50 shadow-[#FFD700]/10
+{%- elif 'MGM' in provider_name -%}
+bg-[#C4A747] hover:bg-[#d4b757] text-black shadow-[#C4A747]/25
+{%- elif 'Showtime' in provider_name -%}
+bg-[#FF0000] hover:bg-[#ff1a1a] shadow-[#FF0000]/25
+{%- elif 'HBO' in provider_name -%}
+bg-[#000000] hover:bg-[#1a1a1a] border border-white/30 shadow-white/10
+{%- elif 'YouTube' in provider_name -%}
+bg-[#FF0000] hover:bg-[#ff1a1a] shadow-[#FF0000]/25
+{%- elif 'Google Play' in provider_name -%}
+bg-[#01875F] hover:bg-[#02a070] shadow-[#01875F]/25
+{%- elif 'Vudu' in provider_name -%}
+bg-[#3399FF] hover:bg-[#4da6ff] shadow-[#3399FF]/25
+{%- elif 'Rakuten' in provider_name -%}
+bg-[#BF0000] hover:bg-[#d91919] shadow-[#BF0000]/25
+{%- elif is_primary -%}
+bg-primary-600 hover:bg-primary-500 shadow-primary-600/25
+{%- else -%}
+bg-dark-700 hover:bg-dark-600 border border-dark-500 shadow-dark-700/25
+{%- endif -%}
+{% endmacro %}
+
+{# Full streaming button component #}
+{% macro streaming_button(provider, is_primary=true) %}
+{% if provider.deep_link %}
+<a href="{{ provider.deep_link }}" target="_blank" rel="noopener"
+   class="group inline-flex items-center gap-3 px-5 py-3 rounded-xl text-white text-base font-semibold
+          transform transition-all duration-200 ease-out hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
+          {{ provider_colors(provider.provider_name, is_primary) }}">
+    {% if provider.logo_path %}
+    <img src="{{ provider.logo_path }}" alt="" class="w-7 h-7 rounded-lg object-cover transition-transform duration-200 group-hover:scale-110">
+    {% else %}
+    <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+        </svg>
+    </div>
+    {% endif %}
+    <span>Watch on {{ provider.provider_name }}</span>
+    <svg class="w-4 h-4 opacity-60 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+    </svg>
+</a>
+{% endif %}
+{% endmacro %}
+
+{# Rent/Buy provider logo button #}
+{% macro rent_buy_logo(provider) %}
+{% if provider.deep_link %}
+<a href="{{ provider.deep_link }}" target="_blank" rel="noopener"
+   class="group relative" title="{{ provider.provider_name }}">
+    {% if provider.logo_path %}
+    <img src="{{ provider.logo_path }}" alt="{{ provider.provider_name }}"
+         class="w-10 h-10 rounded-lg object-cover transition-transform duration-200 group-hover:scale-110">
+    {% else %}
+    <div class="w-10 h-10 rounded-lg bg-dark-700 flex items-center justify-center text-xs text-dark-400">
+        {{ provider.provider_name[:3] }}
+    </div>
+    {% endif %}
+</a>
+{% endif %}
+{% endmacro %}

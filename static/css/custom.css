@@ -1,0 +1,282 @@
+/* Custom styles for Yaad */
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area support for notched devices */
+.safe-area-top {
+    padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent pull-to-refresh on PWA */
+body {
+    overscroll-behavior-y: contain;
+}
+
+/* Touch manipulation for interactive elements */
+.touch-manipulation {
+    touch-action: manipulation;
+}
+
+/* Larger tap targets for mobile */
+@media (max-width: 768px) {
+    button, a, [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    input, select, textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* HTMX loading indicator */
+.htmx-request {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.htmx-request .htmx-indicator {
+    display: inline-block;
+}
+
+.htmx-indicator {
+    display: none;
+}
+
+/* Card hover effects */
+.media-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.media-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Cover image aspect ratio */
+.cover-aspect {
+    aspect-ratio: 2/3;
+}
+
+/* Media cover image quality enhancement */
+.media-cover {
+    /* Smooth scaling for low-res images */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: smooth;
+    /* Slight contrast boost to enhance colors */
+    filter: contrast(1.02);
+    /* Smooth transition on load */
+    transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
+    /* Ensure image fills container completely */
+    object-fit: cover;
+    object-position: center;
+    /* Scale up slightly to fill and hide edges */
+    transform: scale(1.02);
+}
+
+/* High quality rendering for larger displays */
+@media (min-width: 768px) {
+    .media-cover {
+        image-rendering: high-quality;
+    }
+}
+
+/* Loading state for images */
+.media-cover[loading="lazy"] {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+/* Smooth image load animation */
+.media-cover {
+    opacity: 1;
+}
+
+.media-cover:not([src]) {
+    opacity: 0;
+}
+
+/* Rating stars */
+.rating-star {
+    transition: color 0.15s ease;
+}
+
+/* Toast animations */
+.toast-enter {
+    animation: toast-in 0.3s ease forwards;
+}
+
+.toast-exit {
+    animation: toast-out 0.3s ease forwards;
+}
+
+@keyframes toast-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes toast-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+
+/* Skeleton loading */
+.skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Focus styles */
+*:focus-visible {
+    outline: 2px solid #5c7af4;
+    outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+    background-color: #5c7af4;
+    color: white;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+    /* Disable hover effects on touch devices */
+    @media (hover: none) {
+        .media-card:hover {
+            transform: none;
+            box-shadow: none;
+        }
+    }
+
+    /* Active state for touch feedback */
+    .media-card:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
+
+    /* Hide desktop scrollbar */
+    ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+
+    /* Swipe-friendly horizontal scroll */
+    .horizontal-scroll {
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+    }
+
+    .horizontal-scroll > * {
+        scroll-snap-align: start;
+    }
+}
+
+/* PWA standalone mode adjustments */
+@media (display-mode: standalone) {
+    /* Extra padding for status bar */
+    .safe-area-top {
+        padding-top: max(env(safe-area-inset-top), 20px);
+    }
+
+    /* Hide browser UI hints */
+    body::before {
+        content: none;
+    }
+}
+
+/* Haptic feedback simulation via transform */
+.haptic-feedback:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+    position: fixed;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: top 0.3s ease;
+    z-index: 9999;
+}
+
+.pull-indicator.visible {
+    top: 20px;
+}
+
+/* Star rating touch-friendly */
+.star-rating-touch {
+    display: flex;
+    gap: 4px;
+}
+
+.star-rating-touch .star {
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

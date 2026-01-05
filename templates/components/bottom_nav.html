@@ -1,0 +1,54 @@
+<!-- Mobile Bottom Navigation - Only visible on mobile -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur border-t border-dark-800 md:hidden safe-area-bottom">
+    <div class="flex items-center justify-around h-16">
+        <!-- Dashboard -->
+        <a href="/" class="flex flex-col items-center justify-center w-full h-full py-2 text-dark-400 hover:text-primary-500 active:scale-95 transition-all touch-manipulation"
+           :class="window.location.pathname === '/' ? 'text-primary-500' : ''">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span class="text-xs mt-1">Home</span>
+        </a>
+
+        <!-- Catalogue -->
+        <a href="/catalogue" class="flex flex-col items-center justify-center w-full h-full py-2 text-dark-400 hover:text-primary-500 active:scale-95 transition-all touch-manipulation"
+           :class="window.location.pathname.startsWith('/catalogue') ? 'text-primary-500' : ''">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            <span class="text-xs mt-1">Catalogue</span>
+        </a>
+
+        <!-- Add (Center - Prominent) -->
+        <a href="/add" class="flex flex-col items-center justify-center w-full h-full py-2 touch-manipulation">
+            <div class="w-12 h-12 bg-primary-600 rounded-full flex items-center justify-center shadow-lg shadow-primary-600/30 active:scale-95 transition-transform -mt-4">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+            </div>
+            <span class="text-xs mt-1 text-primary-500">Add</span>
+        </a>
+
+        <!-- Stats -->
+        <a href="/stats" class="flex flex-col items-center justify-center w-full h-full py-2 text-dark-400 hover:text-primary-500 active:scale-95 transition-all touch-manipulation"
+           :class="window.location.pathname.startsWith('/stats') ? 'text-primary-500' : ''">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span class="text-xs mt-1">Stats</span>
+        </a>
+
+        <!-- Profile/Settings -->
+        <a href="/settings" class="flex flex-col items-center justify-center w-full h-full py-2 text-dark-400 hover:text-primary-500 active:scale-95 transition-all touch-manipulation"
+           :class="window.location.pathname.startsWith('/settings') ? 'text-primary-500' : ''">
+            {% if user.avatar_url %}
+            <img src="{{ user.avatar_url }}" alt="{{ user.username }}" class="w-6 h-6 rounded-full object-cover" referrerpolicy="no-referrer">
+            {% else %}
+            <div class="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+                <span class="text-xs font-medium text-white">{{ user.username[0]|upper }}</span>
+            </div>
+            {% endif %}
+            <span class="text-xs mt-1">Profile</span>
+        </a>
+    </div>
+</nav>

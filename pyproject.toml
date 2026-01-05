@@ -1,0 +1,102 @@
+[project]
+name = "yaad"
+version = "0.1.0"
+description = "Self-hosted personal media tracking application"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Yaad Contributors"}
+]
+keywords = ["media", "tracking", "self-hosted", "fastapi"]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.25",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.1",
+
+    # Redis & Background tasks
+    "redis>=5.0.1",
+    "arq>=0.25.0",
+
+    # Validation & Settings
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
+
+    # Templates
+    "jinja2>=3.1.3",
+
+    # Auth
+    "authlib>=1.3.0",
+    "itsdangerous>=2.1.2",
+    "httpx>=0.26.0",
+
+    # i18n
+    "babel>=2.14.0",
+
+    # Metadata fetchers
+    "yt-dlp>=2024.1.7",
+
+    # Vector DB & Embeddings (Phase 6)
+    # "chromadb>=0.4.22",
+    # "sentence-transformers>=2.2.2",
+
+    # Utilities
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.4",
+    "pytest-asyncio>=0.23.3",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+    "ruff>=0.1.13",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["yaad"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true

@@ -1,0 +1,1036 @@
+{% extends "base.html" %}
+
+{% block title %}Add Media - Yaad{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="addMedia()">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white">Add Media</h1>
+        <p class="text-dark-400 mt-1">Add a film, book, or video to your library.</p>
+    </div>
+
+    <!-- Type Selection -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <label class="block text-sm font-medium text-dark-300 mb-3">Media Type</label>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <button type="button"
+                    @click="selectType('film')"
+                    :class="mediaType === 'film' ? 'border-blue-500 bg-blue-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Film</span>
+            </button>
+
+            <button type="button"
+                    @click="selectType('series')"
+                    :class="mediaType === 'series' ? 'border-cyan-500 bg-cyan-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Series</span>
+            </button>
+
+            <button type="button"
+                    @click="selectType('book')"
+                    :class="mediaType === 'book' ? 'border-green-500 bg-green-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Book</span>
+            </button>
+
+            <button type="button"
+                    @click="selectType('youtube')"
+                    :class="mediaType === 'youtube' ? 'border-red-500 bg-red-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Video</span>
+            </button>
+
+            <button type="button"
+                    @click="selectType('podcast')"
+                    :class="mediaType === 'podcast' ? 'border-purple-500 bg-purple-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Podcast</span>
+            </button>
+
+            <button type="button"
+                    @click="selectType('show')"
+                    :class="mediaType === 'show' ? 'border-pink-500 bg-pink-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="p-3 rounded-lg border-2 transition-colors text-center">
+                <svg class="w-6 h-6 mx-auto mb-1 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
+                </svg>
+                <span class="text-white text-sm font-medium">Show</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- YouTube URL Input (Auto-fill) -->
+    <div x-show="mediaType === 'youtube'" class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <label class="block text-sm font-medium text-dark-300 mb-3">
+            <svg class="w-4 h-4 inline mr-1 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            YouTube URL
+        </label>
+        <div class="flex gap-3">
+            <input type="text"
+                   x-model="youtubeUrl"
+                   @keydown.enter.prevent="lookupYouTube()"
+                   placeholder="https://youtube.com/watch?v=... or video ID"
+                   class="flex-1 bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent">
+            <button type="button"
+                    @click="lookupYouTube()"
+                    :disabled="!youtubeUrl || searching"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-dark-700 text-white rounded-lg transition-colors">
+                <span x-show="!searching">Fetch</span>
+                <svg x-show="searching" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </button>
+        </div>
+        <p class="mt-2 text-dark-500 text-xs">Paste a YouTube URL to auto-fill video details</p>
+    </div>
+
+    <!-- Book ISBN/Search Input (Auto-fill) -->
+    <div x-show="mediaType === 'book'" class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <div class="flex gap-4 mb-4">
+            <button type="button"
+                    @click="bookSearchMode = 'isbn'"
+                    :class="bookSearchMode === 'isbn' ? 'text-green-400 border-b-2 border-green-400' : 'text-dark-400'"
+                    class="pb-2 font-medium">
+                Search by ISBN/EAN
+            </button>
+            <button type="button"
+                    @click="bookSearchMode = 'title'"
+                    :class="bookSearchMode === 'title' ? 'text-green-400 border-b-2 border-green-400' : 'text-dark-400'"
+                    class="pb-2 font-medium">
+                Search by Title
+            </button>
+        </div>
+
+        <!-- ISBN/EAN Search -->
+        <div x-show="bookSearchMode === 'isbn'">
+            <label class="block text-sm font-medium text-dark-300 mb-3">ISBN / EAN</label>
+            <div class="flex gap-3">
+                <input type="text"
+                       x-model="isbnQuery"
+                       @keydown.enter.prevent="lookupISBN()"
+                       placeholder="978-2-07-036822-8 or scan barcode"
+                       class="flex-1 bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono">
+                <button type="button"
+                        @click="lookupISBN()"
+                        :disabled="!isbnQuery || searching"
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-dark-700 text-white rounded-lg transition-colors">
+                    <span x-show="!searching">Fetch</span>
+                    <svg x-show="searching" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </button>
+            </div>
+            <p class="mt-2 text-dark-500 text-xs">Enter ISBN-10, ISBN-13, or EAN-13 (barcode) to auto-fill book details</p>
+        </div>
+
+        <!-- Title Search -->
+        <div x-show="bookSearchMode === 'title'">
+            <label class="block text-sm font-medium text-dark-300 mb-3">Search Books</label>
+            <div class="relative">
+                <input type="text"
+                       x-model="searchQuery"
+                       @input.debounce.300ms="searchBooks()"
+                       placeholder="Search by title or author..."
+                       class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                <div x-show="searching" class="absolute right-3 top-3">
+                    <svg class="animate-spin h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Book Search Results -->
+            <div x-show="searchResults.length > 0" class="mt-4 space-y-2 max-h-96 overflow-y-auto">
+                <template x-for="result in searchResults" :key="result.open_library_key || result.isbn">
+                    <button type="button"
+                            @click="selectBook(result)"
+                            class="w-full flex items-start gap-4 p-3 bg-dark-800 hover:bg-dark-700 rounded-lg transition-colors text-left">
+                        <template x-if="result.cover_url">
+                            <img :src="result.cover_url"
+                                 :alt="result.title"
+                                 class="w-12 h-18 object-cover rounded flex-shrink-0 bg-dark-700">
+                        </template>
+                        <template x-if="!result.cover_url">
+                            <div class="w-12 h-18 rounded flex-shrink-0 bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
+                                <span class="text-lg font-bold text-white" x-text="result.title.charAt(0).toUpperCase()"></span>
+                            </div>
+                        </template>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-white font-medium" x-text="result.title"></h4>
+                            <p class="text-dark-400 text-sm" x-text="(result.authors || []).join(', ') || 'Unknown author'"></p>
+                            <p class="text-dark-500 text-xs" x-text="result.year || ''"></p>
+                        </div>
+                    </button>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- TMDB Search (Films and Series) -->
+    <div x-show="mediaType === 'film' || mediaType === 'series'" class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <label class="block text-sm font-medium text-dark-300 mb-3">
+            Search TMDB
+            <span x-show="mediaType === 'film'" class="text-blue-400">(Movies)</span>
+            <span x-show="mediaType === 'series'" class="text-cyan-400">(TV Series)</span>
+        </label>
+        <div class="relative">
+            <input type="text"
+                   x-model="searchQuery"
+                   @input.debounce.300ms="searchTMDB()"
+                   :placeholder="mediaType === 'series' ? 'Search for a TV series...' : 'Search for a movie...'"
+                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <div x-show="searching" class="absolute right-3 top-3">
+                <svg class="animate-spin h-5 w-5 text-primary-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div x-show="searchResults.length > 0" class="mt-4 space-y-2 max-h-96 overflow-y-auto">
+            <template x-for="result in searchResults" :key="result.id">
+                <button type="button"
+                        @click="selectFromTMDB(result)"
+                        class="w-full flex items-start gap-4 p-3 bg-dark-800 hover:bg-dark-700 rounded-lg transition-colors text-left">
+                    <!-- Poster or letter placeholder -->
+                    <template x-if="result.poster_url">
+                        <img :src="result.poster_url"
+                             :alt="result.title"
+                             class="w-16 h-24 object-cover rounded flex-shrink-0 bg-dark-700 media-cover">
+                    </template>
+                    <template x-if="!result.poster_url">
+                        <div :class="{
+                                 'bg-gradient-to-br from-blue-600 to-blue-800': mediaType === 'film',
+                                 'bg-gradient-to-br from-cyan-600 to-cyan-800': mediaType === 'series'
+                             }"
+                             class="w-16 h-24 rounded flex-shrink-0 flex items-center justify-center">
+                            <span class="text-2xl font-bold text-white" x-text="result.title.charAt(0).toUpperCase()"></span>
+                        </div>
+                    </template>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-white font-medium" x-text="result.display_title || result.title"></h4>
+                        <p class="text-dark-400 text-sm" x-text="result.year || 'Unknown year'"></p>
+                        <p class="text-dark-500 text-xs mt-1 line-clamp-2" x-text="result.overview"></p>
+                    </div>
+                </button>
+            </template>
+        </div>
+
+        <p x-show="searchQuery && !searching && searchResults.length === 0" class="mt-4 text-dark-400 text-sm">
+            No results found. You can add manually below.
+        </p>
+    </div>
+
+    <!-- Podcast URL/Search Input (Auto-fill) -->
+    <div x-show="mediaType === 'podcast'" class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <div class="flex gap-4 mb-4">
+            <button type="button"
+                    @click="podcastSearchMode = 'url'"
+                    :class="podcastSearchMode === 'url' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-dark-400'"
+                    class="pb-2 font-medium">
+                Paste URL
+            </button>
+            <button type="button"
+                    @click="podcastSearchMode = 'search'"
+                    :class="podcastSearchMode === 'search' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-dark-400'"
+                    class="pb-2 font-medium">
+                Search Podcast
+            </button>
+        </div>
+
+        <!-- URL Input -->
+        <div x-show="podcastSearchMode === 'url'">
+            <label class="block text-sm font-medium text-dark-300 mb-3">
+                <svg class="w-4 h-4 inline mr-1 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                </svg>
+                Podcast Episode URL
+            </label>
+            <div class="flex gap-3">
+                <input type="text"
+                       x-model="podcastUrl"
+                       @keydown.enter.prevent="lookupPodcast()"
+                       placeholder="Spotify, Apple Podcasts, YouTube, or RSS feed URL"
+                       class="flex-1 bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <button type="button"
+                        @click="lookupPodcast()"
+                        :disabled="!podcastUrl || searching"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-dark-700 text-white rounded-lg transition-colors">
+                    <span x-show="!searching">Fetch</span>
+                    <svg x-show="searching" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </button>
+            </div>
+            <p class="mt-2 text-dark-500 text-xs">Paste a Spotify, Apple Podcasts, YouTube, or RSS feed URL</p>
+        </div>
+
+        <!-- Search -->
+        <div x-show="podcastSearchMode === 'search'">
+            <label class="block text-sm font-medium text-dark-300 mb-3">Search Podcasts</label>
+            <div class="relative">
+                <input type="text"
+                       x-model="searchQuery"
+                       @input.debounce.300ms="searchPodcasts()"
+                       placeholder="Search podcasts by name..."
+                       class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <div x-show="searching" class="absolute right-3 top-3">
+                    <svg class="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Podcast Search Results -->
+            <div x-show="searchResults.length > 0" class="mt-4 space-y-2 max-h-96 overflow-y-auto">
+                <template x-for="result in searchResults" :key="result.show_id">
+                    <button type="button"
+                            @click="selectPodcast(result)"
+                            class="w-full flex items-start gap-4 p-3 bg-dark-800 hover:bg-dark-700 rounded-lg transition-colors text-left">
+                        <template x-if="result.cover_url">
+                            <img :src="result.cover_url"
+                                 :alt="result.title"
+                                 class="w-16 h-16 object-cover rounded flex-shrink-0 bg-dark-700">
+                        </template>
+                        <template x-if="!result.cover_url">
+                            <div class="w-16 h-16 rounded flex-shrink-0 bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center">
+                                <span class="text-xl font-bold text-white" x-text="result.title.charAt(0).toUpperCase()"></span>
+                            </div>
+                        </template>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-white font-medium" x-text="result.title"></h4>
+                            <p class="text-dark-400 text-sm" x-text="result.host || 'Unknown host'"></p>
+                            <p class="text-dark-500 text-xs" x-text="result.genre + (result.episode_count ? ' • ' + result.episode_count + ' episodes' : '')"></p>
+                        </div>
+                    </button>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Entry Notice for Show -->
+    <div x-show="mediaType === 'show'" class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-dark-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+                <p class="text-dark-300 text-sm">
+                    Enter show/theater details manually: venue, director, actors, etc.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Media Form -->
+    <form @submit.prevent="submitMedia()" class="bg-dark-900 rounded-xl border border-dark-800 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Cover Preview -->
+            <div class="md:row-span-4">
+                <label class="block text-sm font-medium text-dark-300 mb-3">Cover</label>
+                <div :class="['youtube', 'podcast'].includes(mediaType) ? 'aspect-video' : 'aspect-[2/3]'"
+                     class="bg-dark-800 rounded-lg overflow-hidden">
+                    <img x-show="form.cover_url"
+                         :src="form.cover_url"
+                         class="w-full h-full object-cover media-cover">
+                    <!-- Letter placeholder when no cover -->
+                    <div x-show="!form.cover_url && form.title"
+                         :class="{
+                             'bg-gradient-to-br from-blue-600 to-blue-800': mediaType === 'film',
+                             'bg-gradient-to-br from-cyan-600 to-cyan-800': mediaType === 'series',
+                             'bg-gradient-to-br from-green-600 to-green-800': mediaType === 'book',
+                             'bg-gradient-to-br from-red-600 to-red-800': mediaType === 'youtube',
+                             'bg-gradient-to-br from-purple-600 to-purple-800': mediaType === 'podcast',
+                             'bg-gradient-to-br from-pink-600 to-pink-800': mediaType === 'show'
+                         }"
+                         class="w-full h-full flex items-center justify-center">
+                        <span class="text-5xl font-bold text-white/90" x-text="form.title.charAt(0).toUpperCase()"></span>
+                    </div>
+                    <!-- Empty placeholder icon -->
+                    <div x-show="!form.cover_url && !form.title" class="w-full h-full flex items-center justify-center">
+                        <svg class="w-16 h-16 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                </div>
+                <input type="text"
+                       x-model="form.cover_url"
+                       placeholder="Cover URL (optional)"
+                       class="mt-3 w-full bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-sm text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            </div>
+
+            <!-- Title -->
+            <div>
+                <label class="block text-sm font-medium text-dark-300 mb-2">
+                    <span x-show="mediaType === 'film' || mediaType === 'series'">Original Title *</span>
+                    <span x-show="mediaType !== 'film' && mediaType !== 'series'">Title *</span>
+                </label>
+                <input type="text"
+                       x-model="form.title"
+                       required
+                       class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            </div>
+
+            <!-- French Title (for films/series with different original title) -->
+            <div x-show="(mediaType === 'film' || mediaType === 'series') && form.local_title">
+                <label class="block text-sm font-medium text-dark-300 mb-2">French Title</label>
+                <input type="text"
+                       x-model="form.local_title"
+                       class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            </div>
+
+            <!-- Type-specific fields -->
+
+            <!-- FILM: Year, Duration, Director -->
+            <template x-if="mediaType === 'film'">
+                <div class="contents">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Year</label>
+                            <input type="number" x-model="form.year" min="1800" max="2100"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Duration (min)</label>
+                            <input type="number" x-model="form.duration_minutes" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- SERIES: Year, Seasons/Episodes -->
+            <template x-if="mediaType === 'series'">
+                <div class="contents">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Year</label>
+                            <input type="number" x-model="form.year" min="1800" max="2100"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Ep. Duration (min)</label>
+                            <input type="number" x-model="form.duration_minutes" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- BOOK: Author, Year, Pages, Publisher, ISBN -->
+            <template x-if="mediaType === 'book'">
+                <div class="contents">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Year</label>
+                            <input type="number" x-model="form.year" min="1800" max="2100"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Pages</label>
+                            <input type="number" x-model="form.page_count" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">ISBN</label>
+                            <input type="text" x-model="form.external_id" placeholder="978-..."
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 font-mono focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Publisher</label>
+                            <input type="text" x-model="publisher"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                    <!-- French Edition Link -->
+                    <div x-show="frenchEdition" class="md:col-span-2">
+                        <div class="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                            <div class="flex items-center gap-2 text-blue-400 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                                </svg>
+                                <span class="font-medium">French Edition Available</span>
+                            </div>
+                            <div class="mt-2 text-dark-300 text-sm">
+                                <span x-text="frenchEdition?.title"></span>
+                                <span x-show="frenchEdition?.year" class="text-dark-500">(<span x-text="frenchEdition?.year"></span>)</span>
+                                <span x-show="frenchEdition?.publisher" class="text-dark-500">- <span x-text="frenchEdition?.publisher"></span></span>
+                                <span x-show="frenchEdition?.isbn" class="text-dark-500 font-mono ml-2">ISBN: <span x-text="frenchEdition?.isbn"></span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- YOUTUBE: Channel, Duration, URL -->
+            <template x-if="mediaType === 'youtube'">
+                <div class="contents">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Channel</label>
+                            <input type="text" x-model="channelName" placeholder="Channel name"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Duration (min)</label>
+                            <input type="number" x-model="form.duration_minutes" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Video URL</label>
+                        <input type="url" x-model="form.external_url" placeholder="https://youtube.com/watch?v=..."
+                               class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                </div>
+            </template>
+
+            <!-- PODCAST: Show Name, Host, Episode URL -->
+            <template x-if="mediaType === 'podcast'">
+                <div class="contents">
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Podcast Name</label>
+                        <input type="text" x-model="podcastName" placeholder="Podcast show name"
+                               class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Host</label>
+                            <input type="text" x-model="hostName" placeholder="Host name"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Duration (min)</label>
+                            <input type="number" x-model="form.duration_minutes" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Episode URL</label>
+                        <input type="url" x-model="form.external_url" placeholder="https://..."
+                               class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                </div>
+            </template>
+
+            <!-- SHOW: Venue, Director, Year -->
+            <template x-if="mediaType === 'show'">
+                <div class="contents">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Year</label>
+                            <input type="number" x-model="form.year" min="1800" max="2100"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-dark-300 mb-2">Duration (min)</label>
+                            <input type="number" x-model="form.duration_minutes" min="0"
+                                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Venue / Theater</label>
+                        <input type="text" x-model="venue" placeholder="Theater name or location"
+                               class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                </div>
+            </template>
+
+            <!-- Status -->
+            <div>
+                <label class="block text-sm font-medium text-dark-300 mb-2">Status</label>
+                <select x-model="form.status"
+                        class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <option value="to_consume">To Watch/Read</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="finished">Finished</option>
+                    <option value="abandoned">Abandoned</option>
+                </select>
+            </div>
+
+            <!-- Description -->
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2">Description</label>
+                <textarea x-model="form.description"
+                          rows="3"
+                          class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
+            </div>
+
+            <!-- Genres (display for imports) -->
+            <div x-show="genres.length > 0" class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2">Genres</label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="genre in genres" :key="genre">
+                        <span class="px-3 py-1 bg-dark-700 text-dark-300 rounded-full text-sm" x-text="genre"></span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Directors/Authors/Channel (display for imports) -->
+            <div x-show="directors.length > 0" class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2"
+                       x-text="mediaType === 'book' ? 'Author(s)' : mediaType === 'series' ? 'Creator(s)' : mediaType === 'youtube' ? 'Channel' : mediaType === 'podcast' ? 'Host' : 'Director(s)'"></label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="director in directors" :key="director">
+                        <span class="px-3 py-1 bg-dark-700 text-dark-300 rounded-full text-sm" x-text="director"></span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- YouTube Tags (display for YouTube imports) -->
+            <div x-show="mediaType === 'youtube' && youtubeTags.length > 0" class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2">Tags</label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tag in youtubeTags" :key="tag">
+                        <span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm" x-text="tag"></span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Podcast Tags (display for Podcast imports) -->
+            <div x-show="mediaType === 'podcast' && podcastTags.length > 0" class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2">Tags</label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tag in podcastTags" :key="tag">
+                        <span class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-sm" x-text="tag"></span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Show Name (for podcasts) -->
+            <div x-show="mediaType === 'podcast' && podcastName" class="md:col-span-2">
+                <label class="block text-sm font-medium text-dark-300 mb-2">Podcast Show</label>
+                <div class="text-dark-200 bg-dark-800 rounded-lg px-4 py-2" x-text="podcastName"></div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="mt-6 flex justify-end gap-4">
+            <a href="/catalogue"
+               class="px-4 py-2 text-dark-400 hover:text-white transition-colors">
+                Cancel
+            </a>
+            <button type="submit"
+                    :disabled="submitting || !form.title"
+                    class="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors">
+                <span x-show="!submitting">Add to Library</span>
+                <span x-show="submitting">Adding...</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addMedia() {
+    return {
+        mediaType: 'film',
+        searchQuery: '',
+        searchResults: [],
+        searching: false,
+        submitting: false,
+        genres: [],
+        directors: [],
+
+        // Type-specific fields
+        bookSearchMode: 'isbn',
+        podcastSearchMode: 'url',
+        isbnQuery: '',
+        youtubeUrl: '',
+        podcastUrl: '',
+        youtubeTags: [],  // Tags from YouTube video
+        podcastTags: [],  // Tags from podcast
+        channelName: '',
+        podcastName: '',
+        hostName: '',
+        publisher: '',
+        venue: '',
+        selectedPodcastFeed: null,  // For fetching episodes
+        frenchEdition: null,  // French edition info for books
+
+        form: {
+            title: '',
+            local_title: '',  // French title (if different from original)
+            year: null,
+            duration_minutes: null,
+            page_count: null,
+            description: '',
+            cover_url: '',
+            external_id: null,
+            external_url: '',
+            status: 'to_consume',
+            // Extended metadata (TMDB)
+            tmdb_rating: null,
+            tmdb_vote_count: null,
+            popularity: null,
+            budget: null,
+            revenue: null,
+            original_language: null,
+            production_countries: null,
+            cast: null,
+            keywords: null,
+            collection_id: null,
+            collection_name: null,
+            certification: null,
+            tagline: null,
+            // Series-specific
+            number_of_seasons: null,
+            number_of_episodes: null,
+            series_status: null,
+            networks: null
+        },
+
+        selectType(type) {
+            this.mediaType = type;
+            this.resetForm();
+        },
+
+        resetForm() {
+            this.searchQuery = '';
+            this.searchResults = [];
+            this.genres = [];
+            this.directors = [];
+            this.isbnQuery = '';
+            this.youtubeUrl = '';
+            this.podcastUrl = '';
+            this.youtubeTags = [];
+            this.podcastTags = [];
+            this.channelName = '';
+            this.podcastName = '';
+            this.hostName = '';
+            this.selectedPodcastFeed = null;
+            this.publisher = '';
+            this.venue = '';
+            this.frenchEdition = null;
+            this.form = {
+                title: '',
+                local_title: '',
+                year: null,
+                duration_minutes: null,
+                page_count: null,
+                description: '',
+                cover_url: '',
+                external_id: null,
+                external_url: '',
+                status: 'to_consume',
+                // Extended metadata
+                tmdb_rating: null,
+                tmdb_vote_count: null,
+                popularity: null,
+                budget: null,
+                revenue: null,
+                original_language: null,
+                production_countries: null,
+                cast: null,
+                keywords: null,
+                collection_id: null,
+                collection_name: null,
+                certification: null,
+                tagline: null,
+                number_of_seasons: null,
+                number_of_episodes: null,
+                series_status: null,
+                networks: null
+            };
+        },
+
+        async lookupYouTube() {
+            if (!this.youtubeUrl) return;
+
+            this.searching = true;
+            try {
+                const response = await fetch(`/api/media/lookup/youtube?url=${encodeURIComponent(this.youtubeUrl)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.form.title = data.title;
+                    this.form.cover_url = data.cover_url;
+                    this.form.external_url = data.external_url;
+                    this.form.external_id = data.video_id;
+                    this.form.duration_minutes = data.duration_minutes;
+                    this.form.description = data.description || '';
+                    this.form.year = data.year;
+                    this.channelName = data.channel_name || '';
+                    this.directors = data.channel_name ? [data.channel_name] : [];
+                    // Use categories as genres, tags as additional info
+                    this.genres = data.categories || [];
+                    // Store tags for display (first 5)
+                    this.youtubeTags = (data.tags || []).slice(0, 5);
+                } else {
+                    alert('Could not fetch video info. Please check the URL.');
+                }
+            } catch (error) {
+                console.error('YouTube lookup failed:', error);
+                alert('Failed to fetch video info.');
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        async lookupPodcast() {
+            if (!this.podcastUrl) return;
+
+            this.searching = true;
+            try {
+                const response = await fetch(`/api/media/lookup/podcast?url=${encodeURIComponent(this.podcastUrl)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.form.title = data.title;
+                    this.form.cover_url = data.cover_url;
+                    this.form.external_url = data.external_url;
+                    this.form.duration_minutes = data.duration_minutes;
+                    this.form.description = data.description || '';
+                    this.form.year = data.year;
+                    this.podcastName = data.show_name || '';
+                    this.hostName = data.host || '';
+                    this.directors = data.host ? [data.host] : [];
+                    // Use categories as genres
+                    this.genres = data.categories || [];
+                    // Store tags for display
+                    this.podcastTags = (data.tags || []).slice(0, 5);
+                    // Store feed URL if available
+                    this.selectedPodcastFeed = data.feed_url || null;
+                } else {
+                    alert('Could not fetch podcast info. Please check the URL.');
+                }
+            } catch (error) {
+                console.error('Podcast lookup failed:', error);
+                alert('Failed to fetch podcast info.');
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        async searchPodcasts() {
+            if (!this.searchQuery || this.searchQuery.length < 2) {
+                this.searchResults = [];
+                return;
+            }
+
+            this.searching = true;
+            try {
+                const response = await fetch(`/api/media/search/podcasts?query=${encodeURIComponent(this.searchQuery)}`);
+                if (response.ok) {
+                    this.searchResults = await response.json();
+                }
+            } catch (error) {
+                console.error('Podcast search failed:', error);
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        selectPodcast(podcast) {
+            this.form.title = podcast.title;
+            this.form.cover_url = podcast.cover_url || '';
+            this.form.external_url = podcast.external_url || '';
+            this.podcastName = podcast.title;
+            this.hostName = podcast.host || '';
+            this.directors = podcast.host ? [podcast.host] : [];
+            this.genres = podcast.genre ? [podcast.genre] : [];
+            this.selectedPodcastFeed = podcast.feed_url || null;
+            this.searchResults = [];
+            this.searchQuery = '';
+        },
+
+        async lookupISBN() {
+            if (!this.isbnQuery) return;
+
+            this.searching = true;
+            try {
+                const response = await fetch(`/api/media/lookup/book?isbn=${encodeURIComponent(this.isbnQuery)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.selectBook(data);
+                } else {
+                    alert('Book not found. Please check the ISBN or try searching by title.');
+                }
+            } catch (error) {
+                console.error('ISBN lookup failed:', error);
+                alert('Failed to fetch book info.');
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        async searchBooks() {
+            if (!this.searchQuery || this.searchQuery.length < 2) {
+                this.searchResults = [];
+                return;
+            }
+
+            this.searching = true;
+            try {
+                const response = await fetch(`/api/media/search/books?query=${encodeURIComponent(this.searchQuery)}`);
+                if (response.ok) {
+                    this.searchResults = await response.json();
+                }
+            } catch (error) {
+                console.error('Book search failed:', error);
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        selectBook(book) {
+            this.form.title = book.title;
+            this.form.year = book.year;
+            this.form.page_count = book.page_count;
+            this.form.description = book.description || '';
+            this.form.cover_url = book.cover_url || '';
+            // Use user's ISBN if available, otherwise the found ISBN
+            this.form.external_id = book.user_isbn || book.isbn || book.external_id;
+            this.publisher = book.publisher || '';
+            this.directors = book.authors || [];
+            // Store French edition info if available
+            this.frenchEdition = book.french_edition || null;
+            this.searchResults = [];
+            this.searchQuery = '';
+        },
+
+        async searchTMDB() {
+            if (!this.searchQuery || this.searchQuery.length < 2) {
+                this.searchResults = [];
+                return;
+            }
+
+            this.searching = true;
+            try {
+                const endpoint = this.mediaType === 'series'
+                    ? `/api/media/search/tmdb/tv?query=${encodeURIComponent(this.searchQuery)}`
+                    : `/api/media/search/tmdb?query=${encodeURIComponent(this.searchQuery)}`;
+                const response = await fetch(endpoint);
+                if (response.ok) {
+                    this.searchResults = await response.json();
+                }
+            } catch (error) {
+                console.error('TMDB search failed:', error);
+            } finally {
+                this.searching = false;
+            }
+        },
+
+        async selectFromTMDB(result) {
+            try {
+                const endpoint = this.mediaType === 'series'
+                    ? `/api/media/tmdb/tv/${result.id}`
+                    : `/api/media/tmdb/${result.id}`;
+                const response = await fetch(endpoint);
+                if (response.ok) {
+                    const details = await response.json();
+                    this.form.title = details.title;  // Original title
+                    // Store French title if different from original
+                    this.form.local_title = (details.local_title && details.local_title !== details.title)
+                        ? details.local_title : '';
+                    this.form.year = details.year ? parseInt(details.year) : null;
+                    this.form.duration_minutes = details.duration_minutes;
+                    this.form.description = details.description;
+                    this.form.cover_url = details.cover_url;
+                    this.form.external_id = String(details.id);
+                    this.form.external_url = details.external_url;
+                    this.genres = details.genres || [];
+                    this.directors = (details.directors || []).map(d => d.name);
+
+                    // Extended metadata (TMDB)
+                    this.form.tmdb_rating = details.tmdb_rating;
+                    this.form.tmdb_vote_count = details.tmdb_vote_count;
+                    this.form.popularity = details.popularity;
+                    this.form.budget = details.budget;
+                    this.form.revenue = details.revenue;
+                    this.form.original_language = details.original_language;
+                    this.form.production_countries = details.production_countries;
+                    this.form.cast = details.cast;
+                    this.form.keywords = details.keywords;
+                    this.form.collection_id = details.collection_id;
+                    this.form.collection_name = details.collection_name;
+                    this.form.certification = details.certification;
+                    this.form.tagline = details.tagline;
+
+                    // Series-specific
+                    this.form.number_of_seasons = details.number_of_seasons;
+                    this.form.number_of_episodes = details.number_of_episodes;
+                    this.form.series_status = details.series_status;
+                    this.form.networks = details.networks;
+
+                    this.searchResults = [];
+                    this.searchQuery = '';
+                }
+            } catch (error) {
+                console.error('Failed to get TMDB details:', error);
+            }
+        },
+
+        async submitMedia() {
+            if (!this.form.title) return;
+
+            this.submitting = true;
+            try {
+                // Build query params for genres and directors/authors
+                let url = '/api/media';
+                const params = new URLSearchParams();
+                this.genres.forEach(g => params.append('genres', g));
+                this.directors.forEach(d => params.append('authors', d));
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ...this.form,
+                        type: this.mediaType,
+                        year: this.form.year ? parseInt(this.form.year) : null,
+                        duration_minutes: this.form.duration_minutes ? parseInt(this.form.duration_minutes) : null,
+                        page_count: this.form.page_count ? parseInt(this.form.page_count) : null,
+                    }),
+                });
+
+                if (response.ok) {
+                    const media = await response.json();
+                    window.location.href = `/media/${media.id}`;
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to add media');
+                }
+            } catch (error) {
+                console.error('Failed to add media:', error);
+                alert('Failed to add media. Please try again.');
+            } finally {
+                this.submitting = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

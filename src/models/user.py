@@ -1,0 +1,50 @@
+"""User model."""
+
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import JSON, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from src.models.media import Media, Tag
+
+
+class User(Base, TimestampMixin):
+    """User model for authentication and library ownership."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    locale: Mapped[str] = mapped_column(String(5), default="en")
+    settings: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Streaming preferences
+    country: Mapped[str] = mapped_column(String(2), default="FR")  # ISO 3166-1 alpha-2
+    streaming_platforms: Mapped[list] = mapped_column(JSON, default=list)  # List of provider IDs
+
+    # OAuth provider IDs (nullable - user has at least one)
+    github_id: Mapped[int | None] = mapped_column(unique=True, index=True, nullable=True)
+    google_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
+
+    # Relationships
+    media: Mapped[list["Media"]] = relationship(
+        "Media",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    tags: Mapped[list["Tag"]] = relationship(
+        "Tag",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, username={self.username})>"

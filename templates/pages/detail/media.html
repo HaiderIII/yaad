@@ -1,0 +1,623 @@
+{% extends "base.html" %}
+{% from "macros/streaming.html" import streaming_button, rent_buy_logo %}
+
+{% block title %}{{ media.title }} - Yaad{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="mediaDetail()">
+    <!-- Back link -->
+    <a href="/catalogue" class="inline-flex items-center text-dark-400 hover:text-white mb-6 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to Catalogue
+    </a>
+
+    <div class="bg-dark-900 rounded-xl border border-dark-800 overflow-hidden">
+        <div class="md:flex">
+            <!-- Cover - Adaptive aspect ratio based on media type -->
+            <div class="{% if media.type.value in ['youtube', 'podcast'] %}md:w-2/5 lg:w-1/3{% else %}md:w-1/3 lg:w-1/4{% endif %} flex-shrink-0">
+                <div class="{% if media.type.value in ['youtube', 'podcast'] %}aspect-video{% else %}aspect-[2/3]{% endif %} bg-dark-800">
+                    {% if media.cover_url %}
+                    <img src="{{ media.cover_url }}"
+                         alt="{{ media.title }}"
+                         class="w-full h-full object-cover media-cover">
+                    {% else %}
+                    <!-- Letter placeholder with type-specific gradient -->
+                    <div class="w-full h-full flex items-center justify-center
+                        {% if media.type.value == 'film' %}bg-gradient-to-br from-blue-600 to-blue-800
+                        {% elif media.type.value == 'series' %}bg-gradient-to-br from-cyan-600 to-cyan-800
+                        {% elif media.type.value == 'book' %}bg-gradient-to-br from-green-600 to-green-800
+                        {% elif media.type.value == 'youtube' %}bg-gradient-to-br from-red-600 to-red-800
+                        {% elif media.type.value == 'podcast' %}bg-gradient-to-br from-purple-600 to-purple-800
+                        {% elif media.type.value == 'show' %}bg-gradient-to-br from-pink-600 to-pink-800
+                        {% else %}bg-gradient-to-br from-primary-600 to-primary-800{% endif %}">
+                        <span class="text-6xl font-bold text-white/90">{{ media.title[0]|upper }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div class="flex-1 p-6 md:p-8">
+                <!-- Header -->
+                <div class="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-bold text-white">{{ media.title }}</h1>
+                        {% if media.original_title and media.original_title != media.title %}
+                        <p class="text-dark-400 mt-1 italic">{{ media.original_title }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2">
+                        {% if media.external_url %}
+                        <a href="{{ media.external_url }}"
+                           target="_blank"
+                           class="p-2 text-dark-400 hover:text-white transition-colors"
+                           title="View on TMDB">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                        <button @click="showEditModal = true"
+                                class="p-2 text-dark-400 hover:text-white transition-colors"
+                                title="Edit">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button @click="confirmDelete()"
+                                class="p-2 text-red-400 hover:text-red-300 transition-colors"
+                                title="Delete">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tagline -->
+                {% if media.tagline %}
+                <p class="text-dark-400 italic mb-4">"{{ media.tagline }}"</p>
+                {% endif %}
+
+                <!-- Metadata line -->
+                <div class="flex flex-wrap items-center gap-3 text-dark-400 text-sm mb-4">
+                    <!-- Type badge -->
+                    {% if media.type.value == 'film' %}
+                    <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded font-medium text-xs">Film</span>
+                    {% elif media.type.value == 'series' %}
+                    <span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded font-medium text-xs">Series</span>
+                    {% elif media.type.value == 'book' %}
+                    <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded font-medium text-xs">Book</span>
+                    {% elif media.type.value == 'youtube' %}
+                    <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded font-medium text-xs">Video</span>
+                    {% elif media.type.value == 'podcast' %}
+                    <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded font-medium text-xs">Podcast</span>
+                    {% elif media.type.value == 'show' %}
+                    <span class="px-2 py-1 bg-pink-500/20 text-pink-400 rounded font-medium text-xs">Show</span>
+                    {% endif %}
+
+                    {% if media.year %}<span>{{ media.year }}</span>{% endif %}
+                    {% if media.duration_minutes %}<span>{{ media.duration_minutes | format_duration }}</span>{% endif %}
+                    {% if media.page_count %}<span>{{ media.page_count }} pages</span>{% endif %}
+                    {% if media.certification %}
+                    <span class="px-1.5 py-0.5 border border-dark-600 rounded text-dark-300 font-medium text-xs">{{ media.certification }}</span>
+                    {% endif %}
+
+                    <!-- Series info -->
+                    {% if media.type.value == 'series' %}
+                        {% if media.number_of_seasons %}<span>{{ media.number_of_seasons }} season{% if media.number_of_seasons > 1 %}s{% endif %}</span>{% endif %}
+                        {% if media.number_of_episodes %}<span>{{ media.number_of_episodes }} ep.</span>{% endif %}
+                        {% if media.series_status %}
+                        <span class="px-2 py-0.5 {% if media.series_status == 'Ended' %}bg-dark-700 text-dark-400{% elif media.series_status == 'Returning Series' %}bg-green-500/20 text-green-400{% elif media.series_status == 'Canceled' %}bg-red-500/20 text-red-400{% else %}bg-dark-700 text-dark-400{% endif %} rounded text-xs">{{ media.series_status }}</span>
+                        {% endif %}
+                    {% endif %}
+
+                    <!-- TMDB Rating -->
+                    {% if media.tmdb_rating %}
+                    <span class="flex items-center gap-1 text-yellow-400">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        {{ "%.1f"|format(media.tmdb_rating) }}
+                        {% if media.tmdb_vote_count %}<span class="text-dark-500 text-xs">({{ "{:,}".format(media.tmdb_vote_count) }})</span>{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Genres -->
+                {% if media.genres %}
+                <div class="flex flex-wrap gap-2 mb-5">
+                    {% for genre in media.genres %}
+                    <span class="px-3 py-1 bg-primary-500/20 text-primary-400 rounded-full text-sm">{{ genre.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Status & Rating - Compact inline -->
+                <div class="flex flex-wrap items-center gap-6 mb-6 pb-6 border-b border-dark-800">
+                    <!-- Status -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">Status</span>
+                        <select x-model="status"
+                                @change="updateMedia()"
+                                class="bg-dark-800 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="to_consume">To Watch/Read</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="finished">Finished</option>
+                            <option value="abandoned">Abandoned</option>
+                        </select>
+                    </div>
+
+                    <!-- Rating -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">My Rating</span>
+                        <div class="flex items-center gap-1">
+                            <template x-for="star in 5" :key="star">
+                                <div class="relative w-6 h-6 cursor-pointer"
+                                     @mousemove="handleStarHover($event, star)"
+                                     @mouseleave="hoverRating = null"
+                                     @click="handleStarClick($event, star)">
+                                    <svg class="w-6 h-6 text-dark-600 absolute inset-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                    <svg x-show="getStarFill(star) === 'half'" class="w-6 h-6 text-yellow-400 absolute inset-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20" style="clip-path: inset(0 50% 0 0);">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                    <svg x-show="getStarFill(star) === 'full'" class="w-6 h-6 text-yellow-400 absolute inset-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                </div>
+                            </template>
+                            <span class="text-white text-sm ml-1 min-w-[2.5rem]" x-text="displayRating"></span>
+                            <button @click="rating = null; updateMedia()" x-show="rating" class="text-dark-500 hover:text-dark-300 ml-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- YouTube: Channel + Watch button -->
+                {% if media.type.value == 'youtube' %}
+                <div class="mb-6">
+                    {% if media.authors %}
+                    <p class="text-dark-500 text-sm mb-3">Channel: <span class="text-white font-medium">{{ media.authors | map(attribute='name') | join(', ') }}</span></p>
+                    {% endif %}
+                    {% if media.external_url %}
+                    <a href="{{ media.external_url }}" target="_blank"
+                       class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Watch on YouTube
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Podcast: Host + Listen button -->
+                {% if media.type.value == 'podcast' %}
+                <div class="mb-6">
+                    {% if media.authors %}
+                    <p class="text-dark-500 text-sm mb-3">Host: <span class="text-white font-medium">{{ media.authors | map(attribute='name') | join(', ') }}</span></p>
+                    {% endif %}
+                    {% if media.external_url %}
+                    <a href="{{ media.external_url }}" target="_blank"
+                       class="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                        </svg>
+                        Listen to Podcast
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Streaming Availability - styled buttons -->
+                {% if streaming_info and media.type.value in ['film', 'series'] %}
+                {% if streaming_info.available_on_user_platforms or streaming_info.other_streaming or streaming_info.rent or streaming_info.buy %}
+                <div class="mb-6" x-data="{ showAllRentBuy: false }">
+                    <!-- Streaming (Flatrate) - Watch on X buttons -->
+                    {% if streaming_info.available_on_user_platforms or streaming_info.other_streaming %}
+                    <div class="mb-4">
+                        <div class="flex flex-wrap gap-3">
+                            <!-- User's platforms first -->
+                            {% for provider in streaming_info.available_on_user_platforms %}
+                            {{ streaming_button(provider, is_primary=true) }}
+                            {% endfor %}
+                            <!-- Other streaming platforms -->
+                            {% for provider in streaming_info.other_streaming %}
+                            {{ streaming_button(provider, is_primary=false) }}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Rent/Buy - Show 2 max + expand button -->
+                    {% set all_rent_buy = streaming_info.rent + streaming_info.buy %}
+                    {% if all_rent_buy %}
+                    <div>
+                        <h3 class="text-xs font-medium text-dark-500 uppercase tracking-wide mb-3">Rent / Buy</h3>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- First 2 providers always visible -->
+                            {% for provider in all_rent_buy[:2] %}
+                            <a href="{{ provider.deep_link or '#' }}"
+                               {% if provider.deep_link %}target="_blank" rel="noopener"{% endif %}
+                               class="group {% if provider.deep_link %}cursor-pointer{% else %}cursor-default{% endif %}"
+                               title="{{ provider.provider_name }}">
+                                <div class="w-10 h-10 rounded-lg overflow-hidden bg-dark-800 border border-dark-700 transition-all group-hover:border-dark-500 group-hover:scale-105">
+                                    {% if provider.logo_path %}
+                                    <img src="{{ provider.logo_path }}" alt="{{ provider.provider_name }}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {% else %}
+                                    <div class="w-full h-full flex items-center justify-center">
+                                        <span class="text-xs text-dark-400">{{ provider.provider_name[:2] }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </a>
+                            {% endfor %}
+
+                            <!-- Hidden providers (shown when expanded) -->
+                            {% if all_rent_buy|length > 2 %}
+                            <template x-if="showAllRentBuy">
+                                <div class="contents">
+                                    {% for provider in all_rent_buy[2:] %}
+                                    <a href="{{ provider.deep_link or '#' }}"
+                                       {% if provider.deep_link %}target="_blank" rel="noopener"{% endif %}
+                                       class="group {% if provider.deep_link %}cursor-pointer{% else %}cursor-default{% endif %}"
+                                       title="{{ provider.provider_name }}">
+                                        <div class="w-10 h-10 rounded-lg overflow-hidden bg-dark-800 border border-dark-700 transition-all group-hover:border-dark-500 group-hover:scale-105">
+                                            {% if provider.logo_path %}
+                                            <img src="{{ provider.logo_path }}" alt="{{ provider.provider_name }}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                                            {% else %}
+                                            <div class="w-full h-full flex items-center justify-center">
+                                                <span class="text-xs text-dark-400">{{ provider.provider_name[:2] }}</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </template>
+
+                            <!-- +X button -->
+                            <button x-show="!showAllRentBuy"
+                                    @click="showAllRentBuy = true"
+                                    class="w-10 h-10 rounded-lg bg-dark-800 border border-dark-700 flex items-center justify-center text-dark-400 hover:text-white hover:border-dark-500 transition-all">
+                                <span class="text-sm font-medium">+{{ all_rent_buy|length - 2 }}</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endif %}
+
+                <!-- Director/Creator/Author -->
+                {% if media.type.value == 'film' and media.authors %}
+                <div class="mb-4">
+                    <span class="text-dark-500 text-sm">Director</span>
+                    <p class="text-white">{{ media.authors | map(attribute='name') | join(', ') }}</p>
+                </div>
+                {% endif %}
+
+                {% if media.type.value == 'series' and media.authors %}
+                <div class="mb-4">
+                    <span class="text-dark-500 text-sm">Creator</span>
+                    <p class="text-white">{{ media.authors | map(attribute='name') | join(', ') }}</p>
+                </div>
+                {% endif %}
+
+                {% if media.type.value == 'book' and media.authors %}
+                <div class="mb-4">
+                    <span class="text-dark-500 text-sm">Author</span>
+                    <p class="text-white">{{ media.authors | map(attribute='name') | join(', ') }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Networks (Series) -->
+                {% if media.type.value == 'series' and media.networks %}
+                <div class="mb-4 flex items-center gap-3">
+                    <span class="text-dark-500 text-sm">Network</span>
+                    <div class="flex items-center gap-2">
+                        {% for network in media.networks %}
+                        {% if network.logo_path %}
+                        <img src="{{ network.logo_path }}" alt="{{ network.name }}" class="h-5 object-contain">
+                        {% else %}
+                        <span class="text-white text-sm">{{ network.name }}</span>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Collection -->
+                {% if media.collection_name %}
+                <div class="mb-4">
+                    <span class="px-3 py-1 bg-amber-500/15 text-amber-400 rounded-full text-sm">{{ media.collection_name }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Description -->
+                {% if media.description %}
+                <div class="mb-6">
+                    <p class="text-dark-300 leading-relaxed">{{ media.description }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Cast -->
+                {% if media.cast and media.type.value in ['film', 'series'] %}
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-dark-400 mb-3">Cast</h3>
+                    <div class="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
+                        {% for actor in media.cast[:8] %}
+                        <div class="flex-shrink-0 text-center w-16">
+                            {% if actor.profile_path %}
+                            <img src="{{ actor.profile_path }}" alt="{{ actor.name }}" class="w-14 h-14 mx-auto rounded-full object-cover bg-dark-700">
+                            {% else %}
+                            <div class="w-14 h-14 mx-auto rounded-full bg-dark-700 flex items-center justify-center">
+                                <span class="text-dark-400 text-sm font-medium">{{ actor.name[0] }}</span>
+                            </div>
+                            {% endif %}
+                            <p class="text-white text-xs mt-1.5 truncate">{{ actor.name }}</p>
+                            {% if actor.character %}
+                            <p class="text-dark-500 text-xs truncate">{{ actor.character }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Budget & Box Office -->
+                {% if media.type.value == 'film' and (media.budget or media.revenue) %}
+                <div class="mb-6 flex gap-6">
+                    {% if media.budget %}
+                    <div>
+                        <span class="text-dark-500 text-xs uppercase tracking-wide">Budget</span>
+                        <p class="text-white font-medium">${{ "{:,.0f}".format(media.budget) }}</p>
+                    </div>
+                    {% endif %}
+                    {% if media.revenue %}
+                    <div>
+                        <span class="text-dark-500 text-xs uppercase tracking-wide">Box Office</span>
+                        <p class="text-white font-medium">${{ "{:,.0f}".format(media.revenue) }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Keywords -->
+                {% if media.keywords and media.type.value in ['film', 'series'] %}
+                <div class="mb-6">
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for keyword in media.keywords[:12] %}
+                        <span class="px-2 py-0.5 bg-dark-800 text-dark-400 rounded text-xs">{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Book ISBN -->
+                {% if media.type.value == 'book' and media.external_id %}
+                <div class="mb-6">
+                    <span class="text-dark-500 text-sm">ISBN</span>
+                    <p class="text-white font-mono">{{ media.external_id }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Notes -->
+                <div class="pt-6 border-t border-dark-800">
+                    <label class="block text-sm font-medium text-dark-400 mb-2">Personal Notes</label>
+                    <textarea x-model="notes"
+                              @blur="updateMedia()"
+                              rows="2"
+                              placeholder="Add your thoughts..."
+                              class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm"></textarea>
+                </div>
+
+                <!-- Tags -->
+                {% if media.tags %}
+                <div class="mt-4">
+                    <div class="flex flex-wrap gap-2">
+                        {% for tag in media.tags %}
+                        <span class="px-2 py-1 bg-dark-700 text-dark-300 rounded text-xs">{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Timestamps -->
+                <div class="mt-6 pt-4 border-t border-dark-800 text-xs text-dark-500">
+                    <span>Added {{ media.created_at.strftime('%b %d, %Y') }}</span>
+                    {% if media.consumed_at %} · <span>Finished {{ media.consumed_at.strftime('%b %d, %Y') }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div x-show="showEditModal"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         @keydown.escape.window="showEditModal = false">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div class="fixed inset-0 bg-black/75 transition-opacity" @click="showEditModal = false"></div>
+            <div class="relative bg-dark-900 rounded-xl border border-dark-700 w-full max-w-lg mx-auto p-6 text-left shadow-xl transform transition-all" @click.stop>
+                <h3 class="text-xl font-semibold text-white mb-6">Edit Media</h3>
+                <form @submit.prevent="saveEdit()">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Title</label>
+                        <input type="text" x-model="editForm.title" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Year</label>
+                        <input type="number" x-model="editForm.year" min="1800" max="2100" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    {% if media.type.value in ['film', 'series', 'youtube', 'podcast', 'show'] %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Duration (minutes)</label>
+                        <input type="number" x-model="editForm.duration_minutes" min="0" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    {% endif %}
+                    {% if media.type.value == 'book' %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Page Count</label>
+                        <input type="number" x-model="editForm.page_count" min="0" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">ISBN</label>
+                        <input type="text" x-model="editForm.external_id" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 font-mono focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    {% endif %}
+                    {% if media.type.value in ['youtube', 'podcast'] %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">URL</label>
+                        <input type="url" x-model="editForm.external_url" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    {% endif %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">
+                            {% if media.type.value == 'film' %}Director{% elif media.type.value == 'series' %}Creator{% elif media.type.value == 'book' %}Author{% elif media.type.value == 'youtube' %}Channel{% elif media.type.value == 'podcast' %}Host{% else %}Author{% endif %}
+                        </label>
+                        <input type="text" x-model="editForm.authors" placeholder="Separate with commas" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Cover URL</label>
+                        <input type="url" x-model="editForm.cover_url" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Description</label>
+                        <textarea x-model="editForm.description" rows="3" class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" @click="showEditModal = false" class="px-4 py-2 text-dark-400 hover:text-white transition-colors">Cancel</button>
+                        <button type="submit" :disabled="saving" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded-lg transition-colors">
+                            <span x-show="!saving">Save</span>
+                            <span x-show="saving">Saving...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function mediaDetail() {
+    return {
+        mediaId: {{ media.id }},
+        status: '{{ media.status.value }}',
+        rating: {{ media.rating if media.rating else 'null' }},
+        notes: `{{ media.notes | default('', true) | replace('`', '\\`') | replace('\n', '\\n') }}`,
+        updating: false,
+        hoverRating: null,
+        showEditModal: false,
+        saving: false,
+        editForm: {
+            title: `{{ media.title | replace('`', '\\`') }}`,
+            year: {{ media.year if media.year else 'null' }},
+            duration_minutes: {{ media.duration_minutes if media.duration_minutes else 'null' }},
+            page_count: {{ media.page_count if media.page_count else 'null' }},
+            description: `{{ media.description | default('', true) | replace('`', '\\`') | replace('\n', '\\n') }}`,
+            cover_url: `{{ media.cover_url | default('', true) }}`,
+            external_id: `{{ media.external_id | default('', true) }}`,
+            external_url: `{{ media.external_url | default('', true) }}`,
+            authors: `{{ media.authors | map(attribute='name') | join(', ') }}`,
+        },
+
+        get displayRating() {
+            const r = this.hoverRating || this.rating;
+            if (!r) return '-';
+            return r + '/5';
+        },
+
+        handleStarHover(event, star) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            this.hoverRating = x < rect.width / 2 ? star - 0.5 : star;
+        },
+
+        handleStarClick(event, star) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const newRating = x < rect.width / 2 ? star - 0.5 : star;
+            this.rating = this.rating === newRating ? null : newRating;
+            this.updateMedia();
+        },
+
+        getStarFill(star) {
+            const r = this.hoverRating || this.rating;
+            if (!r) return 'empty';
+            if (r >= star) return 'full';
+            if (r >= star - 0.5) return 'half';
+            return 'empty';
+        },
+
+        async updateMedia() {
+            if (this.updating) return;
+            this.updating = true;
+            try {
+                await fetch(`/api/media/${this.mediaId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: this.status,
+                        rating: this.rating ? parseFloat(this.rating) : null,
+                        notes: this.notes || null,
+                    }),
+                });
+            } catch (e) { console.error(e); }
+            finally { this.updating = false; }
+        },
+
+        async confirmDelete() {
+            if (!confirm('Delete this media from your library?')) return;
+            try {
+                const res = await fetch(`/api/media/${this.mediaId}`, { method: 'DELETE' });
+                if (res.ok) window.location.href = '/catalogue';
+                else alert('Failed to delete');
+            } catch (e) { alert('Failed to delete'); }
+        },
+
+        async saveEdit() {
+            this.saving = true;
+            try {
+                let url = `/api/media/${this.mediaId}`;
+                const params = new URLSearchParams();
+                if (this.editForm.authors) {
+                    this.editForm.authors.split(',').map(a => a.trim()).filter(a => a).forEach(a => params.append('authors', a));
+                }
+                if (params.toString()) url += '?' + params.toString();
+
+                const res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: this.editForm.title || null,
+                        year: this.editForm.year ? parseInt(this.editForm.year) : null,
+                        duration_minutes: this.editForm.duration_minutes ? parseInt(this.editForm.duration_minutes) : null,
+                        page_count: this.editForm.page_count ? parseInt(this.editForm.page_count) : null,
+                        description: this.editForm.description || null,
+                        cover_url: this.editForm.cover_url || null,
+                        external_id: this.editForm.external_id || null,
+                        external_url: this.editForm.external_url || null,
+                    }),
+                });
+                if (res.ok) window.location.reload();
+                else alert((await res.json()).detail || 'Failed to save');
+            } catch (e) { alert('Failed to save'); }
+            finally { this.saving = false; }
+        }
+    }
+}
+</script>
+{% endblock %}

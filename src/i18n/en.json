@@ -1,0 +1,68 @@
+{
+  "app": {
+    "name": "Yaad",
+    "tagline": "Your personal media library"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "catalogue": "Catalogue",
+    "add": "Add",
+    "stats": "Stats",
+    "settings": "Settings",
+    "logout": "Logout",
+    "search": "Search..."
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "welcome": "Welcome",
+    "sign_in": "Sign in to access your media library",
+    "continue_github": "Continue with GitHub",
+    "terms": "By signing in, you agree to our terms of service"
+  },
+  "dashboard": {
+    "welcome": "Welcome back, {username}",
+    "subtitle": "Track your films, books, and videos all in one place.",
+    "films": "Films",
+    "books": "Books",
+    "videos": "Videos",
+    "in_progress": "In Progress",
+    "empty_title": "Your library is empty",
+    "empty_description": "Start building your personal media library by adding films, books, or YouTube videos.",
+    "add_media": "Add Media",
+    "import_library": "Import Library",
+    "continue_watching": "Continue Watching",
+    "jellyfin_connect": "Connect Jellyfin to see your watch progress here.",
+    "recently_added": "Recently Added",
+    "view_all": "View all",
+    "add_first": "Add your first media to see it here."
+  },
+  "media": {
+    "type": {
+      "film": "Film",
+      "book": "Book",
+      "youtube": "YouTube"
+    },
+    "status": {
+      "to_consume": "To Watch",
+      "in_progress": "In Progress",
+      "finished": "Finished",
+      "abandoned": "Abandoned"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "watch": "Watch",
+      "read": "Read"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  }
+}

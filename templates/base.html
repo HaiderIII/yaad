@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#4158e8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Yaad">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>{% block title %}Yaad{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/img/icon-192.svg">
+
+    <!-- Tailwind CSS via CDN (development) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        // Jellyfin-inspired dark theme
+                        primary: {
+                            50: '#f0f5ff',
+                            100: '#e0eaff',
+                            200: '#c7d9fe',
+                            300: '#a4c0fd',
+                            400: '#7e9dfa',
+                            500: '#5c7af4',
+                            600: '#4158e8',
+                            700: '#3346d4',
+                            800: '#2d3aab',
+                            900: '#2a3587',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            850: '#172033',
+                            900: '#0f172a',
+                            950: '#0a0f1a',
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.14.7/dist/cdn.min.js"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-dark-950 text-dark-100 min-h-screen antialiased">
+    {% if user %}
+    {% include "components/navbar.html" %}
+    {% endif %}
+
+    <main class="{% if user %}pt-16 pb-20 md:pb-0{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if user %}
+    {% include "components/bottom_nav.html" %}
+    {% endif %}
+
+    <!-- Toast notifications container -->
+    <div id="toast-container" class="fixed bottom-24 md:bottom-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Custom scripts -->
+    <script src="/static/js/app.js"></script>
+
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
