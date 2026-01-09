@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Column,
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -45,6 +47,15 @@ class MediaStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
     FINISHED = "finished"
     ABANDONED = "abandoned"
+
+
+class OwnershipType(str, enum.Enum):
+    """Book ownership type."""
+
+    NONE = "none"  # Don't own it
+    PHYSICAL = "physical"  # Physical book
+    EBOOK = "ebook"  # E-book
+    BOTH = "both"  # Both physical and e-book
 
 
 # Association tables
@@ -119,6 +130,24 @@ class Tag(Base, TimestampMixin):
         return f"<Tag(id={self.id}, name={self.name})>"
 
 
+class BookLocation(Base, TimestampMixin):
+    """User-defined book storage location."""
+
+    __tablename__ = "book_locations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g., "Salon", "Bureau", "Kindle"
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="book_locations")
+
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_book_location_user_name"),)
+
+    def __repr__(self) -> str:
+        return f"<BookLocation(id={self.id}, name={self.name})>"
+
+
 class Media(Base, TimestampMixin):
     """Base media entity with isolation per user."""
 
@@ -159,8 +188,8 @@ class Media(Base, TimestampMixin):
     tmdb_rating: Mapped[float | None] = mapped_column(Float, nullable=True)  # vote_average
     tmdb_vote_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     popularity: Mapped[float | None] = mapped_column(Float, nullable=True)  # TMDB popularity score
-    budget: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Film budget in USD
-    revenue: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Film box office in USD
+    budget: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # Film budget in USD
+    revenue: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # Film box office in USD
     original_language: Mapped[str | None] = mapped_column(String(10), nullable=True)  # ISO 639-1
     production_countries: Mapped[list | None] = mapped_column(JSON, nullable=True)  # List of country codes
     cast: Mapped[list | None] = mapped_column(JSON, nullable=True)  # Top cast [{id, name, character, profile_path}]
@@ -173,12 +202,22 @@ class Media(Base, TimestampMixin):
     # Series-specific extended fields
     number_of_seasons: Mapped[int | None] = mapped_column(Integer, nullable=True)
     number_of_episodes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)  # User's watch progress
     series_status: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Returning Series, Ended, Canceled
     networks: Mapped[list | None] = mapped_column(JSON, nullable=True)  # Broadcasting networks [{id, name, logo_path}]
 
     # Streaming deep links cache (from JustWatch)
     streaming_links: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # {provider_id: {url, type}}
-    streaming_links_updated: Mapped[datetime | None] = mapped_column(nullable=True)  # Last fetch time
+    streaming_links_updated: Mapped[datetime | None] = mapped_column(nullable=True, index=True)  # Last fetch time
+
+    # Book ownership (for books only)
+    ownership_type: Mapped[OwnershipType | None] = mapped_column(
+        Enum(OwnershipType), default=None, nullable=True
+    )  # Physical, e-book, both, or none
+    ownership_location: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Where the physical book is stored
+
+    # Letterboxd integration (for films imported from Letterboxd)
+    letterboxd_slug: Mapped[str | None] = mapped_column(String(255), nullable=True)  # e.g., "avatar-fire-and-ash"
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="media")
@@ -199,6 +238,15 @@ class Media(Base, TimestampMixin):
 
     __table_args__ = (
         UniqueConstraint("user_id", "type", "external_id", name="uq_media_user_type_external"),
+        # Composite indexes for common query patterns
+        Index("ix_media_user_status", "user_id", "status"),  # Filter by user + status
+        Index("ix_media_user_type", "user_id", "type"),  # Filter by user + type
+        Index("ix_media_user_created", "user_id", "created_at"),  # Sort by created_at
+        Index("ix_media_user_type_status", "user_id", "type", "status"),  # Filter by user + type + status
+        # Additional indexes for optimized queries
+        Index("ix_media_user_type_status_created", "user_id", "type", "status", "created_at"),  # Sorted filtered results
+        Index("ix_media_user_rating", "user_id", "rating"),  # Rating-based sorting
+        Index("ix_media_user_streaming_updated", "user_id", "streaming_links_updated"),  # Stale streaming links
     )
 
     def __repr__(self) -> str:

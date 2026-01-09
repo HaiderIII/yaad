@@ -1,0 +1,226 @@
+{# Catalogue content partial - contains tabs, filters, and grid for HTMX updates #}
+<div id="catalogue-content">
+    {# Build filter query string (excluding type) to persist filters across tabs #}
+    {% set filter_parts = [] %}
+    {% if current_status %}{% set _ = filter_parts.append('status=' ~ current_status) %}{% endif %}
+    {% if current_genre %}{% set _ = filter_parts.append('genre=' ~ current_genre) %}{% endif %}
+    {% if search %}{% set _ = filter_parts.append('search=' ~ search) %}{% endif %}
+    {% if current_sort_by and current_sort_by != 'created_at' %}{% set _ = filter_parts.append('sort_by=' ~ current_sort_by) %}{% endif %}
+    {% if current_sort_order and current_sort_order != 'desc' %}{% set _ = filter_parts.append('sort_order=' ~ current_sort_order) %}{% endif %}
+    {% if streamable_only %}{% set _ = filter_parts.append('streamable=1') %}{% endif %}
+    {% set filter_suffix = '&' ~ (filter_parts | join('&')) if filter_parts else '' %}
+
+    <!-- Category Tabs -->
+    <div class="flex flex-wrap gap-2 mb-6 border-b border-dark-800 pb-4">
+        <a href="/catalogue{{ ('?' ~ (filter_parts | join('&'))) if filter_parts else '' }}"
+           hx-get="/catalogue?partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue{{ ('?' ~ (filter_parts | join('&'))) if filter_parts else '' }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if not current_type and not show_incomplete %}bg-primary-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-dark-700{% endif %}">
+            All
+        </a>
+        <a href="/catalogue?type=film{{ filter_suffix }}"
+           hx-get="/catalogue?type=film&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=film{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'film' and not show_incomplete %}bg-blue-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-blue-600/20 hover:text-blue-400{% endif %}">
+            Films
+        </a>
+        <a href="/catalogue?type=series{{ filter_suffix }}"
+           hx-get="/catalogue?type=series&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=series{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'series' and not show_incomplete %}bg-cyan-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-cyan-600/20 hover:text-cyan-400{% endif %}">
+            Series
+        </a>
+        <a href="/catalogue?type=book{{ filter_suffix }}"
+           hx-get="/catalogue?type=book&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=book{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'book' and not show_incomplete %}bg-green-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-green-600/20 hover:text-green-400{% endif %}">
+            Books
+        </a>
+        <a href="/catalogue?type=youtube{{ filter_suffix }}"
+           hx-get="/catalogue?type=youtube&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=youtube{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'youtube' and not show_incomplete %}bg-red-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-red-600/20 hover:text-red-400{% endif %}">
+            Videos
+        </a>
+        <a href="/catalogue?type=podcast{{ filter_suffix }}"
+           hx-get="/catalogue?type=podcast&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=podcast{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'podcast' and not show_incomplete %}bg-purple-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-purple-600/20 hover:text-purple-400{% endif %}">
+            Podcasts
+        </a>
+        <a href="/catalogue?type=show{{ filter_suffix }}"
+           hx-get="/catalogue?type=show&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?type=show{{ filter_suffix }}"
+           class="px-4 py-2 rounded-lg font-medium transition-colors {% if current_type == 'show' and not show_incomplete %}bg-pink-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-pink-600/20 hover:text-pink-400{% endif %}">
+            Shows
+        </a>
+
+        <!-- Incomplete tab with badge -->
+        {% if incomplete_count > 0 %}
+        <a href="/catalogue?incomplete=1{{ filter_suffix }}"
+           hx-get="/catalogue?incomplete=1&partial=1{{ filter_suffix }}"
+           hx-target="#catalogue-content"
+           hx-swap="outerHTML"
+           hx-push-url="/catalogue?incomplete=1{{ filter_suffix }}"
+           class="ml-auto px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 {% if show_incomplete %}bg-orange-600 text-white{% else %}bg-dark-800 text-dark-300 hover:bg-dark-700{% endif %}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            Incomplete
+            <span class="px-2 py-0.5 bg-orange-500/30 rounded-full text-xs">{{ incomplete_count }}</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-4 mb-6">
+        <form id="filter-form"
+              hx-get="/catalogue"
+              hx-target="#catalogue-content"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              hx-trigger="submit, change from:select delay:100ms, change from:input[type=checkbox] delay:100ms"
+              hx-indicator="#filter-loading"
+              class="flex flex-col gap-4">
+
+            {# Hidden inputs to preserve filter state #}
+            <input type="hidden" name="partial" value="1">
+            {% if show_incomplete %}
+            <input type="hidden" name="incomplete" value="1">
+            {% endif %}
+            {% if current_type %}
+            <input type="hidden" name="type" value="{{ current_type }}">
+            {% endif %}
+
+            <!-- First row: Search -->
+            <div class="relative">
+                <input type="text"
+                       name="search"
+                       value="{{ search }}"
+                       placeholder="Search by title..."
+                       hx-get="/catalogue"
+                       hx-target="#catalogue-content"
+                       hx-swap="outerHTML"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-push-url="true"
+                       hx-include="#filter-form"
+                       class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 pr-10 text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <!-- Loading spinner -->
+                <div id="filter-loading" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg class="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Second row: Filters -->
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                <!-- Status filter (hidden when showing incomplete) -->
+                {% if not show_incomplete %}
+                <select name="status"
+                        class="bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer">
+                    <option value="">All Status</option>
+                    <option value="to_consume" {% if current_status == 'to_consume' %}selected{% endif %}>To Watch/Read</option>
+                    <option value="in_progress" {% if current_status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                    <option value="finished" {% if current_status == 'finished' %}selected{% endif %}>Finished</option>
+                    <option value="abandoned" {% if current_status == 'abandoned' %}selected{% endif %}>Abandoned</option>
+                </select>
+                {% endif %}
+
+                <!-- Genre filter -->
+                {% if genres %}
+                <select name="genre"
+                        class="bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer">
+                    <option value="">All Genres</option>
+                    {% for g in genres %}
+                    <option value="{{ g.name }}" {% if current_genre == g.name %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <!-- Streamable toggle (checkbox inside form) -->
+                {% if user_platforms %}
+                <label class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer select-none {% if streamable_only %}bg-emerald-600 text-white{% else %}bg-dark-800 border border-dark-700 text-dark-300 hover:bg-dark-700{% endif %}"
+                       title="{% if streamable_only %}Click to show all{% else %}Show only streamable{% endif %}">
+                    <input type="checkbox"
+                           name="streamable"
+                           value="1"
+                           {% if streamable_only %}checked{% endif %}
+                           class="sr-only">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="hidden sm:inline">Streamable</span>
+                    {% if streamable_only %}
+                    <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    {% endif %}
+                </label>
+                {% endif %}
+
+                <!-- Sort dropdown -->
+                <select name="sort_by"
+                        class="bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer">
+                    <option value="created_at" {% if current_sort_by == 'created_at' %}selected{% endif %}>Date Added</option>
+                    <option value="title" {% if current_sort_by == 'title' %}selected{% endif %}>Title</option>
+                    <option value="year" {% if current_sort_by == 'year' %}selected{% endif %}>Year</option>
+                    <option value="rating" {% if current_sort_by == 'rating' %}selected{% endif %}>Rating</option>
+                    <option value="updated_at" {% if current_sort_by == 'updated_at' %}selected{% endif %}>Last Updated</option>
+                </select>
+
+                <!-- Sort order toggle -->
+                <button type="button"
+                        onclick="toggleSortOrder(this)"
+                        data-order="{{ current_sort_order }}"
+                        class="bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-dark-100 hover:bg-dark-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
+                        title="Toggle sort order">
+                    {% if current_sort_order == 'desc' %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4 4m0 0l4-4m-4 4V4"/>
+                    </svg>
+                    {% else %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"/>
+                    </svg>
+                    {% endif %}
+                </button>
+                <input type="hidden" name="sort_order" value="{{ current_sort_order }}">
+
+                <!-- Spacer -->
+                <div class="flex-1"></div>
+
+                <!-- Clear button -->
+                {% if search or current_status or current_genre or current_sort_by != 'created_at' or streamable_only %}
+                <a href="/catalogue{% if show_incomplete %}?incomplete=1{% elif current_type %}?type={{ current_type }}{% endif %}"
+                   hx-get="/catalogue?partial=1{% if show_incomplete %}&incomplete=1{% elif current_type %}&type={{ current_type }}{% endif %}"
+                   hx-target="#catalogue-content"
+                   hx-swap="outerHTML"
+                   hx-push-url="/catalogue{% if show_incomplete %}?incomplete=1{% elif current_type %}?type={{ current_type }}{% endif %}"
+                   class="px-4 py-2 text-dark-400 hover:text-white transition-colors text-center whitespace-nowrap">
+                    Clear Filters
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Media Grid (loaded via partial) -->
+    {% include "partials/media_grid.html" %}
+</div>

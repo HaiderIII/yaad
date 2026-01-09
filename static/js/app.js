@@ -90,7 +90,24 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// Image lazy load fade-in effect
+function initLazyImages() {
+    const images = document.querySelectorAll('img.media-card-image[loading="lazy"]:not(.loaded)');
+    images.forEach(img => {
+        if (img.complete) {
+            img.classList.add('loaded');
+        } else {
+            img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+            img.addEventListener('error', () => img.classList.add('loaded'), { once: true });
+        }
+    });
+}
+
+// Re-initialize lazy images after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', initLazyImages);
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Yaad initialized');
+    initLazyImages();
 });

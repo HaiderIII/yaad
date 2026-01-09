@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from src.config import get_settings
+from src.constants import HTTPX_TIMEOUT
 
 settings = get_settings()
 
@@ -54,7 +55,7 @@ class TMDBService:
         if year:
             params["year"] = str(year)
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             response = await client.get(
                 f"{TMDB_BASE_URL}/search/movie",
                 params=params,
@@ -108,7 +109,7 @@ class TMDBService:
         if not self.api_key:
             return None
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             # Get movie details with credits, keywords, and release dates (for certification)
             params = self._add_api_key({
                 "language": language,
@@ -235,7 +236,7 @@ class TMDBService:
         if year:
             params["first_air_date_year"] = str(year)
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             response = await client.get(
                 f"{TMDB_BASE_URL}/search/tv",
                 params=params,
@@ -289,7 +290,7 @@ class TMDBService:
         if not self.api_key:
             return None
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             # Get TV details with credits, keywords, and content ratings
             params = self._add_api_key({
                 "language": language,
@@ -420,7 +421,7 @@ class TMDBService:
         if not self.api_key:
             return None
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             params = self._add_api_key({})
             response = await client.get(
                 f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}/watch/providers",
@@ -483,7 +484,7 @@ class TMDBService:
         if not self.api_key:
             return []
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             params = self._add_api_key({
                 "watch_region": country,
             })

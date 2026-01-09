@@ -1,0 +1,24 @@
+{# Skeleton loading grid for HTMX transitions #}
+<div id="media-grid-container" class="htmx-indicator">
+    <!-- Skeleton count -->
+    <div class="h-5 w-32 bg-dark-800 rounded animate-pulse mb-4"></div>
+
+    <!-- Skeleton Grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {% for i in range(12) %}
+        <div class="skeleton-card">
+            <div class="bg-dark-800 rounded-xl overflow-hidden">
+                <!-- Cover skeleton -->
+                <div class="aspect-[2/3] bg-dark-700 animate-pulse"></div>
+                <!-- Content skeleton -->
+                <div class="p-3 space-y-2">
+                    <!-- Title -->
+                    <div class="h-4 bg-dark-700 rounded animate-pulse w-3/4"></div>
+                    <!-- Year/Author -->
+                    <div class="h-3 bg-dark-700 rounded animate-pulse w-1/2"></div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>

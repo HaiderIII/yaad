@@ -18,15 +18,20 @@
     "welcome": "Welcome",
     "sign_in": "Sign in to access your media library",
     "continue_github": "Continue with GitHub",
+    "continue_google": "Continue with Google",
     "terms": "By signing in, you agree to our terms of service"
   },
   "dashboard": {
     "welcome": "Welcome back, {username}",
     "subtitle": "Track your films, books, and videos all in one place.",
     "films": "Films",
+    "series": "Series",
     "books": "Books",
     "videos": "Videos",
+    "podcasts": "Podcasts",
+    "shows": "Shows",
     "in_progress": "In Progress",
+    "up_next": "Up Next",
     "empty_title": "Your library is empty",
     "empty_description": "Start building your personal media library by adding films, books, or YouTube videos.",
     "add_media": "Add Media",
@@ -40,11 +45,17 @@
   "media": {
     "type": {
       "film": "Film",
+      "series": "Series",
       "book": "Book",
-      "youtube": "YouTube"
+      "youtube": "Video",
+      "podcast": "Podcast",
+      "show": "Show"
     },
     "status": {
-      "to_consume": "To Watch",
+      "to_consume": "To Discover",
+      "to_watch": "To Watch",
+      "to_read": "To Read",
+      "to_listen": "To Listen",
       "in_progress": "In Progress",
       "finished": "Finished",
       "abandoned": "Abandoned"
@@ -55,6 +66,41 @@
       "watch": "Watch",
       "read": "Read"
     }
+  },
+  "catalogue": {
+    "title": "Catalogue",
+    "subtitle": "Your personal media library",
+    "all_media": "All Media",
+    "incomplete": "Incomplete",
+    "search_placeholder": "Search by title...",
+    "all_types": "All Types",
+    "all_status": "All Status",
+    "filter": "Filter",
+    "clear": "Clear",
+    "no_results": "No results found",
+    "no_results_hint": "Try adjusting your filters or search term.",
+    "clear_filters": "Clear all filters",
+    "empty_library": "Your library is empty",
+    "empty_library_hint": "Start adding films, books, or videos to your collection.",
+    "add_first_media": "Add Your First Media",
+    "media_found": "{count} media found",
+    "medias_found": "{count} medias found",
+    "page_of": "Page {page} of {pages}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "language_description": "Choose your preferred language",
+    "english": "English",
+    "french": "French",
+    "country": "Country",
+    "country_description": "Used for streaming availability",
+    "streaming_platforms": "Streaming Platforms",
+    "streaming_description": "Select the platforms you have access to",
+    "save_changes": "Save Changes",
+    "saved": "Settings saved successfully"
   },
   "common": {
     "save": "Save",

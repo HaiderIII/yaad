@@ -1,0 +1,208 @@
+{# Media grid partial - reloaded by HTMX #}
+<div id="media-grid-container">
+    <!-- Count -->
+    <p class="text-dark-400 mb-4" id="media-count">{{ total }} media{{ 's' if total != 1 else '' }} found</p>
+
+    {% if media_list %}
+    <!-- Media Grid with staggered animations -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {% for media in media_list %}
+        {# Check if media has a direct link to watch/consume or is owned #}
+        {% set ns = namespace(has_direct_link=false) %}
+        {# Films/Series: check streaming platforms (flatrate only) #}
+        {% if media.type.value in ['film', 'series'] and media.streaming_links and user_platforms %}
+            {% for provider_id, link_info in media.streaming_links.items() %}
+                {% if provider_id in user_platforms and link_info.get('type') == 'flatrate' %}
+                    {% set ns.has_direct_link = true %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {# YouTube: check if external_url exists #}
+        {% if media.type.value == 'youtube' and media.external_url %}
+            {% set ns.has_direct_link = true %}
+        {% endif %}
+        {# Books: check if owned (physical, ebook, or both) #}
+        {% if media.type.value == 'book' and media.ownership_type and media.ownership_type.value != 'none' %}
+            {% set ns.has_direct_link = true %}
+        {% endif %}
+        <a href="/media/{{ media.id }}"
+           class="group grid-item-enter media-card-enhanced {% if ns.has_direct_link %}has-direct-link{% endif %}"
+           {% if ns.has_direct_link %}title="{% if media.type.value == 'book' %}Owned{% else %}Direct link available{% endif %}"{% endif %}
+           preload="mouseover">
+            <!-- Card wrapper -->
+            <div class="card-inner bg-dark-800 rounded-xl overflow-hidden">
+            <!-- Cover - Adaptive aspect ratio based on media type -->
+            <div class="{% if media.type.value in ['youtube', 'podcast'] %}aspect-video{% else %}aspect-[2/3]{% endif %} relative overflow-hidden">
+                {% if media.cover_url %}
+                <img src="{{ media.cover_url }}"
+                     alt="{{ media.title }}"
+                     class="media-card-image"
+                     loading="lazy"
+                     decoding="async"
+                     {% if media.type.value in ['youtube', 'podcast'] %}width="320" height="180"{% else %}width="200" height="300"{% endif %}>
+                {% else %}
+                <!-- Letter placeholder with type-specific gradient -->
+                <div class="w-full h-full flex items-center justify-center
+                    {% if media.type.value == 'film' %}bg-gradient-to-br from-blue-600 to-blue-800
+                    {% elif media.type.value == 'series' %}bg-gradient-to-br from-cyan-600 to-cyan-800
+                    {% elif media.type.value == 'book' %}bg-gradient-to-br from-green-600 to-green-800
+                    {% elif media.type.value == 'youtube' %}bg-gradient-to-br from-red-600 to-red-800
+                    {% elif media.type.value == 'podcast' %}bg-gradient-to-br from-purple-600 to-purple-800
+                    {% elif media.type.value == 'show' %}bg-gradient-to-br from-pink-600 to-pink-800
+                    {% else %}bg-gradient-to-br from-primary-600 to-primary-800{% endif %}">
+                    <span class="text-4xl font-bold text-white/90 transition-transform duration-300 group-hover:scale-110">{{ media.title[0]|upper }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Type badge (top left) -->
+                <div class="absolute top-2 left-2">
+                    {% if media.type.value == 'film' %}
+                    <span class="px-2 py-1 bg-blue-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Film</span>
+                    {% elif media.type.value == 'series' %}
+                    <span class="px-2 py-1 bg-cyan-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Series</span>
+                    {% elif media.type.value == 'book' %}
+                    <span class="px-2 py-1 bg-green-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Book</span>
+                    {% elif media.type.value == 'youtube' %}
+                    <span class="px-2 py-1 bg-red-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Video</span>
+                    {% elif media.type.value == 'podcast' %}
+                    <span class="px-2 py-1 bg-purple-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Podcast</span>
+                    {% elif media.type.value == 'show' %}
+                    <span class="px-2 py-1 bg-pink-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">Show</span>
+                    {% endif %}
+                </div>
+
+                <!-- Status badge (top right) -->
+                <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                    {% if not media.is_complete %}
+                    <span class="px-2 py-1 bg-orange-500/90 backdrop-blur-sm text-xs font-medium rounded text-white flex items-center gap-1" title="Missing: {{ media.missing_fields | join(', ') }}">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01"/>
+                        </svg>
+                        Incomplete
+                    </span>
+                    {% endif %}
+                    {% if media.status.value == 'to_consume' %}
+                    <span class="px-2 py-1 bg-dark-700/90 backdrop-blur-sm text-xs font-medium rounded text-dark-200">
+                        {%- if media.type.value in ['film', 'series', 'youtube', 'show'] -%}To Watch
+                        {%- elif media.type.value == 'book' -%}To Read
+                        {%- elif media.type.value == 'podcast' -%}To Listen
+                        {%- else -%}To Discover{%- endif -%}
+                    </span>
+                    {% elif media.status.value == 'in_progress' %}
+                    <span class="px-2 py-1 bg-yellow-500/80 backdrop-blur-sm text-xs font-medium rounded text-white">In Progress</span>
+                    {% elif media.status.value == 'finished' %}
+                    <span class="px-2 py-1 bg-green-600/80 backdrop-blur-sm text-xs font-medium rounded text-white">Finished</span>
+                    {% endif %}
+                </div>
+
+                <!-- Rating -->
+                {% if media.rating %}
+                <div class="absolute bottom-2 left-2 flex items-center bg-dark-900/80 backdrop-blur-sm px-2 py-1 rounded">
+                    <svg class="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    <span class="text-sm text-white">{{ media.rating }}/5</span>
+                </div>
+                {% endif %}
+
+                <!-- Hover overlay -->
+                <div class="absolute inset-0 bg-gradient-to-t from-dark-950/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </div>
+
+            <!-- Info -->
+            <div class="p-3">
+                <h3 class="text-sm font-medium text-white line-clamp-2 group-hover:text-primary-400 transition-colors">
+                    {{ media.title }}
+                </h3>
+                <p class="text-xs text-dark-400 mt-1">
+                    {% if media.year %}{{ media.year }}{% endif %}
+                    {% if media.type.value == 'series' and media.number_of_episodes %}
+                        &bull; {% if media.current_episode %}{{ media.current_episode }}/{% endif %}{{ media.number_of_episodes }} ep.
+                    {% elif media.duration_minutes %}
+                        {% if media.year %}&bull; {% endif %}{{ media.duration_minutes | format_duration }}
+                    {% endif %}
+                    {% if media.page_count %}{{ media.page_count }} pages{% endif %}
+                </p>
+                {% if show_incomplete and media.missing_fields %}
+                <p class="text-xs text-orange-400 mt-1 line-clamp-1">
+                    Missing: {{ media.missing_fields | join(', ') }}
+                </p>
+                {% endif %}
+            </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if pages > 1 %}
+    {# Build query string with all filters #}
+    {% set filter_params = [] %}
+    {% if current_type %}{% set _ = filter_params.append('type=' ~ current_type) %}{% endif %}
+    {% if current_status %}{% set _ = filter_params.append('status=' ~ current_status) %}{% endif %}
+    {% if current_genre %}{% set _ = filter_params.append('genre=' ~ current_genre) %}{% endif %}
+    {% if search %}{% set _ = filter_params.append('search=' ~ search) %}{% endif %}
+    {% if current_sort_by and current_sort_by != 'created_at' %}{% set _ = filter_params.append('sort_by=' ~ current_sort_by) %}{% endif %}
+    {% if current_sort_order and current_sort_order != 'desc' %}{% set _ = filter_params.append('sort_order=' ~ current_sort_order) %}{% endif %}
+    {% if show_incomplete %}{% set _ = filter_params.append('incomplete=1') %}{% endif %}
+    {% if streamable_only %}{% set _ = filter_params.append('streamable=1') %}{% endif %}
+    {% set filter_query = filter_params | join('&') %}
+    {% set filter_query_prefix = '&' ~ filter_query if filter_query else '' %}
+
+    <div class="mt-8 flex justify-center">
+        <nav class="flex items-center gap-2">
+            {% if page > 1 %}
+            <a href="?page={{ page - 1 }}{{ '&' ~ filter_query if filter_query else '' }}"
+               hx-get="/catalogue?page={{ page - 1 }}{{ filter_query_prefix }}&grid_only=1"
+               hx-target="#media-grid-container"
+               hx-swap="outerHTML"
+               hx-push-url="?page={{ page - 1 }}{{ '&' ~ filter_query if filter_query else '' }}"
+               class="px-3 py-2 bg-dark-800 hover:bg-dark-700 rounded-lg text-dark-300 transition-colors">
+                Previous
+            </a>
+            {% endif %}
+
+            <span class="px-4 py-2 text-dark-400">
+                Page {{ page }} of {{ pages }}
+            </span>
+
+            {% if page < pages %}
+            <a href="?page={{ page + 1 }}{{ '&' ~ filter_query if filter_query else '' }}"
+               hx-get="/catalogue?page={{ page + 1 }}{{ filter_query_prefix }}&grid_only=1"
+               hx-target="#media-grid-container"
+               hx-swap="outerHTML"
+               hx-push-url="?page={{ page + 1 }}{{ '&' ~ filter_query if filter_query else '' }}"
+               class="px-3 py-2 bg-dark-800 hover:bg-dark-700 rounded-lg text-dark-300 transition-colors">
+                Next
+            </a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-12 text-center">
+        <div class="w-20 h-20 mx-auto bg-dark-800 rounded-full flex items-center justify-center mb-4">
+            <svg class="w-10 h-10 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+        </div>
+        {% if search or current_type or current_status or streamable_only %}
+        <h2 class="text-xl font-semibold text-white mb-2">No results found</h2>
+        <p class="text-dark-400 mb-6">{% if streamable_only %}No media available on your streaming platforms. {% endif %}Try adjusting your filters or search term.</p>
+        <a href="/catalogue" class="text-primary-500 hover:text-primary-400">Clear all filters</a>
+        {% else %}
+        <h2 class="text-xl font-semibold text-white mb-2">Your library is empty</h2>
+        <p class="text-dark-400 mb-6">Start adding films, books, or videos to your collection.</p>
+        <a href="/add"
+           class="inline-flex items-center justify-center px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Your First Media
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

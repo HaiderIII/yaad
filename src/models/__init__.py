@@ -1,20 +1,20 @@
 """SQLAlchemy models."""
 
 from src.models.base import Base
-from src.models.user import User
+from src.models.book import BookMetadata
+from src.models.film import FilmMetadata
 from src.models.media import (
-    Media,
-    MediaType,
-    MediaStatus,
-    Genre,
     Author,
+    Genre,
+    Media,
+    MediaStatus,
+    MediaType,
     Tag,
-    media_genres,
     media_authors,
+    media_genres,
     media_tags,
 )
-from src.models.film import FilmMetadata
-from src.models.book import BookMetadata
+from src.models.user import User
 from src.models.youtube import YouTubeMetadata
 
 __all__ = [

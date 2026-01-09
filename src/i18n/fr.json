@@ -1,53 +1,64 @@
 {
   "app": {
     "name": "Yaad",
-    "tagline": "Votre bibliotheque de medias personnelle"
+    "tagline": "Votre bibliothèque de médias personnelle"
   },
   "nav": {
     "dashboard": "Tableau de bord",
     "catalogue": "Catalogue",
     "add": "Ajouter",
     "stats": "Statistiques",
-    "settings": "Parametres",
-    "logout": "Deconnexion",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
     "search": "Rechercher..."
   },
   "auth": {
     "login": "Connexion",
-    "logout": "Deconnexion",
+    "logout": "Déconnexion",
     "welcome": "Bienvenue",
-    "sign_in": "Connectez-vous pour acceder a votre bibliotheque",
+    "sign_in": "Connectez-vous pour accéder à votre bibliothèque",
     "continue_github": "Continuer avec GitHub",
+    "continue_google": "Continuer avec Google",
     "terms": "En vous connectant, vous acceptez nos conditions d'utilisation"
   },
   "dashboard": {
     "welcome": "Bon retour, {username}",
-    "subtitle": "Suivez vos films, livres et videos au meme endroit.",
+    "subtitle": "Suivez vos films, livres et vidéos au même endroit.",
     "films": "Films",
+    "series": "Séries",
     "books": "Livres",
-    "videos": "Videos",
+    "videos": "Vidéos",
+    "podcasts": "Podcasts",
+    "shows": "Spectacles",
     "in_progress": "En cours",
-    "empty_title": "Votre bibliotheque est vide",
-    "empty_description": "Commencez a construire votre bibliotheque en ajoutant des films, livres ou videos YouTube.",
-    "add_media": "Ajouter un media",
-    "import_library": "Importer une bibliotheque",
-    "continue_watching": "Continuer a regarder",
+    "up_next": "À suivre",
+    "empty_title": "Votre bibliothèque est vide",
+    "empty_description": "Commencez à construire votre bibliothèque en ajoutant des films, livres ou vidéos YouTube.",
+    "add_media": "Ajouter un média",
+    "import_library": "Importer une bibliothèque",
+    "continue_watching": "Continuer à regarder",
     "jellyfin_connect": "Connectez Jellyfin pour voir votre progression ici.",
-    "recently_added": "Recemment ajoutes",
+    "recently_added": "Récemment ajoutés",
     "view_all": "Voir tout",
-    "add_first": "Ajoutez votre premier media pour le voir ici."
+    "add_first": "Ajoutez votre premier média pour le voir ici."
   },
   "media": {
     "type": {
       "film": "Film",
+      "series": "Série",
       "book": "Livre",
-      "youtube": "YouTube"
+      "youtube": "Vidéo",
+      "podcast": "Podcast",
+      "show": "Spectacle"
     },
     "status": {
-      "to_consume": "A voir",
+      "to_consume": "À découvrir",
+      "to_watch": "À voir",
+      "to_read": "À lire",
+      "to_listen": "À écouter",
       "in_progress": "En cours",
-      "finished": "Termine",
-      "abandoned": "Abandonne"
+      "finished": "Terminé",
+      "abandoned": "Abandonné"
     },
     "actions": {
       "edit": "Modifier",
@@ -56,6 +67,41 @@
       "read": "Lire"
     }
   },
+  "catalogue": {
+    "title": "Catalogue",
+    "subtitle": "Votre bibliothèque de médias personnelle",
+    "all_media": "Tous les médias",
+    "incomplete": "Incomplet",
+    "search_placeholder": "Rechercher par titre...",
+    "all_types": "Tous les types",
+    "all_status": "Tous les statuts",
+    "filter": "Filtrer",
+    "clear": "Effacer",
+    "no_results": "Aucun résultat trouvé",
+    "no_results_hint": "Essayez d'ajuster vos filtres ou votre recherche.",
+    "clear_filters": "Effacer tous les filtres",
+    "empty_library": "Votre bibliothèque est vide",
+    "empty_library_hint": "Commencez à ajouter des films, livres ou vidéos à votre collection.",
+    "add_first_media": "Ajouter votre premier média",
+    "media_found": "{count} média trouvé",
+    "medias_found": "{count} médias trouvés",
+    "page_of": "Page {page} sur {pages}",
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "language_description": "Choisissez votre langue préférée",
+    "english": "Anglais",
+    "french": "Français",
+    "country": "Pays",
+    "country_description": "Utilisé pour la disponibilité du streaming",
+    "streaming_platforms": "Plateformes de streaming",
+    "streaming_description": "Sélectionnez les plateformes auxquelles vous avez accès",
+    "save_changes": "Enregistrer les modifications",
+    "saved": "Paramètres enregistrés avec succès"
+  },
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -63,6 +109,6 @@
     "confirm": "Confirmer",
     "loading": "Chargement...",
     "error": "Erreur",
-    "success": "Succes"
+    "success": "Succès"
   }
 }

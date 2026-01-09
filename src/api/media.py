@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.search import invalidate_user_search_cache
 from src.auth import get_current_user
 from src.db import get_db
 from src.db.crud import (
@@ -28,9 +29,9 @@ from src.models.schemas import (
 )
 from src.models.user import User
 from src.services.metadata import tmdb_service
-from src.services.metadata.youtube import youtube_service
 from src.services.metadata.books import book_service
 from src.services.metadata.podcast import podcast_service
+from src.services.metadata.youtube import youtube_service
 
 router = APIRouter()
 
@@ -51,6 +52,8 @@ async def create_media_endpoint(
         genres=genres,
         authors=authors,
     )
+    # Invalidate search cache for this user
+    invalidate_user_search_cache(user.id)
     return MediaRead.model_validate(media)
 
 
@@ -265,6 +268,8 @@ async def update_media_endpoint(
     )
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
+    # Invalidate search cache for this user
+    invalidate_user_search_cache(user.id)
     return MediaRead.model_validate(media)
 
 
@@ -278,6 +283,8 @@ async def delete_media_endpoint(
     deleted = await delete_media(db=db, media_id=media_id, user_id=user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Media not found")
+    # Invalidate search cache for this user
+    invalidate_user_search_cache(user.id)
 
 
 # Tag endpoints

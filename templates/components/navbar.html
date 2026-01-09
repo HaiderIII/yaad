@@ -1,5 +1,5 @@
-<nav class="fixed top-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur border-b border-dark-800 safe-area-top" x-data="{ searchOpen: false }">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<nav class="fixed top-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur border-b border-dark-800 safe-area-top" x-data>
+    <div class="px-4 sm:px-6 lg:px-10 xl:px-12">
         <div class="flex items-center justify-between h-16">
             <!-- Logo & Brand -->
             <div class="flex items-center space-x-4">
@@ -10,19 +10,19 @@
                 <!-- Main Navigation (Desktop) -->
                 <div class="hidden md:flex items-center space-x-1 ml-8">
                     <a href="/"
-                       class="px-3 py-2 rounded-md text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-800 transition-colors">
+                       class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'dashboard' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
                         Dashboard
                     </a>
                     <a href="/catalogue"
-                       class="px-3 py-2 rounded-md text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-800 transition-colors">
+                       class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'catalogue' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
                         Catalogue
                     </a>
                     <a href="/add"
-                       class="px-3 py-2 rounded-md text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-800 transition-colors">
+                       class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'add' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
                         Add
                     </a>
                     <a href="/stats"
-                       class="px-3 py-2 rounded-md text-sm font-medium text-dark-300 hover:text-white hover:bg-dark-800 transition-colors">
+                       class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'stats' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
                         Stats
                     </a>
                 </div>
@@ -30,24 +30,13 @@
 
             <!-- Right side -->
             <div class="flex items-center space-x-2 md:space-x-4">
-                <!-- Mobile Search Button -->
-                <button @click="searchOpen = !searchOpen" class="md:hidden p-2 rounded-lg text-dark-400 hover:text-white hover:bg-dark-800 transition-colors touch-manipulation">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <!-- Search Button (Netflix style - icon only) -->
+                <button @click="$dispatch('open-search')"
+                        class="p-2 text-dark-300 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </button>
-
-                <!-- Desktop Search -->
-                <div class="hidden md:block">
-                    <div class="relative">
-                        <input type="text"
-                               placeholder="Search..."
-                               class="w-64 bg-dark-800 border border-dark-700 rounded-lg px-4 py-2 pl-10 text-sm text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <svg class="absolute left-3 top-2.5 h-5 w-5 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                    </div>
-                </div>
 
                 <!-- User menu (Desktop only) -->
                 <div x-data="{ open: false }" class="relative hidden md:block">
@@ -93,30 +82,492 @@
             </div>
         </div>
     </div>
+</nav>
 
-    <!-- Mobile Search Overlay -->
-    <div x-show="searchOpen"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="md:hidden absolute top-full left-0 right-0 bg-dark-900 border-b border-dark-800 p-4">
-        <form action="/catalogue" method="get" class="relative">
-            <input type="text"
-                   name="search"
-                   placeholder="Search your library..."
-                   class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 pl-10 text-base text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                   autofocus>
-            <svg class="absolute left-3 top-3.5 h-5 w-5 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <button type="button" @click="searchOpen = false" class="absolute right-3 top-3 text-dark-400 hover:text-white p-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<!-- Netflix/Canal+ Style Full-Screen Search Modal -->
+<div id="search-modal"
+     x-data="searchModal()"
+     x-show="isOpen"
+     x-cloak
+     @open-search.window="open()"
+     @keydown.window.cmd.k.prevent="open()"
+     @keydown.window.ctrl.k.prevent="open()"
+     @keydown.escape.window="close()"
+     class="search-modal-overlay">
+
+    <!-- Full screen backdrop -->
+    <div class="search-modal-backdrop" @click="close()"></div>
+
+    <!-- Modal Content -->
+    <div class="search-modal-content">
+        <!-- Top Bar with Search -->
+        <div class="search-header">
+            <!-- Close button -->
+            <button @click="close()" class="search-close-btn">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
-        </form>
+
+            <!-- Search Input -->
+            <div class="flex-1 relative">
+                <div class="search-input-wrapper">
+                    <svg class="w-5 h-5 text-dark-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text"
+                           x-ref="searchInput"
+                           x-model="query"
+                           @input.debounce.150ms="search()"
+                           @keydown.arrow-down.prevent="selectNext()"
+                           @keydown.arrow-up.prevent="selectPrev()"
+                           @keydown.enter.prevent="goToSelected()"
+                           placeholder="{{ t('nav.search') }}"
+                           class="search-input">
+
+                    <!-- Loading -->
+                    <div x-show="loading" class="ml-3">
+                        <svg class="w-5 h-5 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Clear -->
+                    <button x-show="query.length > 0 && !loading"
+                            @click="query = ''; results = []; $refs.searchInput.focus()"
+                            class="ml-3 text-dark-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Keyboard hint -->
+            <div class="hidden md:flex items-center ml-4 text-dark-500 text-sm">
+                <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono mr-1">Esc</kbd>
+                to close
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div class="search-results-area">
+            <!-- Initial State - Quick Actions -->
+            <div x-show="query.length < 2 && !loading"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 class="max-w-4xl mx-auto">
+
+                <p class="text-dark-400 text-sm mb-6">Quick actions</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <a href="/add" @click="close()" class="group flex items-center gap-4 p-4 bg-dark-800/50 hover:bg-dark-800 border border-dark-700 rounded-xl transition-all hover:scale-[1.02] hover:border-primary-500/50">
+                        <div class="w-12 h-12 bg-primary-500/20 rounded-xl flex items-center justify-center group-hover:bg-primary-500/30 transition-colors">
+                            <svg class="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium text-white">Add media</p>
+                            <p class="text-sm text-dark-400">Film, series, book...</p>
+                        </div>
+                    </a>
+
+                    <a href="/catalogue" @click="close()" class="group flex items-center gap-4 p-4 bg-dark-800/50 hover:bg-dark-800 border border-dark-700 rounded-xl transition-all hover:scale-[1.02] hover:border-blue-500/50">
+                        <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                            <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium text-white">Catalogue</p>
+                            <p class="text-sm text-dark-400">Browse all media</p>
+                        </div>
+                    </a>
+
+                    <a href="/stats" @click="close()" class="group flex items-center gap-4 p-4 bg-dark-800/50 hover:bg-dark-800 border border-dark-700 rounded-xl transition-all hover:scale-[1.02] hover:border-green-500/50">
+                        <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
+                            <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="font-medium text-white">Statistics</p>
+                            <p class="text-sm text-dark-400">Your activity</p>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Keyboard shortcuts hint -->
+                <div class="mt-12 flex items-center justify-center gap-6 text-dark-500 text-sm">
+                    <span class="flex items-center gap-2">
+                        <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono" x-text="modifierKey"></kbd>
+                        <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono">K</kbd>
+                        <span>to search</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Search Results - Netflix Grid Style -->
+            <div x-show="results.length > 0"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-4"
+                 x-transition:enter-end="opacity-100 translate-y-0">
+
+                <div class="mb-6">
+                    <p class="text-dark-400 text-sm">
+                        <span x-text="results.length"></span> {% if locale == 'fr' %}résultat<span x-show="results.length > 1">s</span> pour{% else %}result<span x-show="results.length > 1">s</span> for{% endif %}
+                        "<span class="text-white" x-text="query"></span>"
+                    </p>
+                </div>
+
+                <!-- Results Grid - Up Next Style (16/10 aspect ratio, 5 tiles like dashboard) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <template x-for="(item, index) in results" :key="item.id">
+                        <a :href="'/media/' + item.id"
+                           @click="close()"
+                           @mouseenter="selectedIndex = index"
+                           class="group relative"
+                           :class="selectedIndex === index ? 'ring-2 ring-primary-500 rounded-xl' : ''">
+                            <div class="bg-dark-900 rounded-xl overflow-hidden hover:shadow-xl hover:shadow-primary-500/10 transition-all duration-300">
+                                <!-- Cover Image -->
+                                <div class="aspect-[16/10] relative overflow-hidden bg-dark-900">
+                                    <img x-show="item.cover_url"
+                                         :src="item.cover_url"
+                                         :alt="item.title"
+                                         class="w-full h-full object-cover object-[center_20%]">
+
+                                    <!-- Placeholder if no cover -->
+                                    <div x-show="!item.cover_url"
+                                         class="w-full h-full flex items-center justify-center"
+                                         :class="{
+                                             'bg-gradient-to-br from-blue-600 to-blue-900': item.type === 'film',
+                                             'bg-gradient-to-br from-cyan-600 to-cyan-900': item.type === 'series',
+                                             'bg-gradient-to-br from-green-600 to-green-900': item.type === 'book',
+                                             'bg-gradient-to-br from-red-600 to-red-900': item.type === 'youtube',
+                                             'bg-gradient-to-br from-purple-600 to-purple-900': item.type === 'podcast',
+                                             'bg-gradient-to-br from-pink-600 to-pink-900': item.type === 'show'
+                                         }">
+                                        <span class="text-5xl font-bold text-white/80 transform group-hover:scale-110 transition-transform duration-500" x-text="item.title[0]"></span>
+                                    </div>
+
+                                    <!-- Gradient Overlay -->
+                                    <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-300"></div>
+
+                                    <!-- Type Badge -->
+                                    <div class="absolute top-3 left-3">
+                                        <span class="px-2.5 py-1 backdrop-blur-sm text-xs font-semibold rounded-md text-white shadow-lg"
+                                              :class="{
+                                                  'bg-blue-500/90': item.type === 'film',
+                                                  'bg-cyan-500/90': item.type === 'series',
+                                                  'bg-green-500/90': item.type === 'book',
+                                                  'bg-red-500/90': item.type === 'youtube',
+                                                  'bg-purple-500/90': item.type === 'podcast',
+                                                  'bg-pink-500/90': item.type === 'show'
+                                              }"
+                                              x-text="item.type_label"></span>
+                                    </div>
+
+                                    <!-- Rating badge -->
+                                    <div x-show="item.rating" class="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-dark-800/90 backdrop-blur-sm rounded text-xs font-medium shadow-lg">
+                                        <svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                        </svg>
+                                        <span class="text-white font-medium" x-text="item.rating"></span>
+                                    </div>
+
+                                    <!-- Play/View Overlay (on hover) -->
+                                    <div class="absolute inset-0 bg-dark-950/60 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center">
+                                        <div class="w-14 h-14 bg-primary-500 rounded-full flex items-center justify-center shadow-2xl transform scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 ease-out hover:bg-primary-400">
+                                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Content -->
+                                <div class="p-4">
+                                    <h3 class="text-white font-semibold line-clamp-1 group-hover:text-primary-400 transition-colors duration-300" x-html="highlightMatch(item.title, query)"></h3>
+                                    <p x-show="item.year" class="text-dark-400 text-sm mt-1" x-text="item.year"></p>
+                                </div>
+                            </div>
+                        </a>
+                    </template>
+                </div>
+
+                <!-- View all in catalogue -->
+                <div class="mt-8 text-center">
+                    <a :href="'/catalogue?search=' + encodeURIComponent(query)"
+                       @click="close()"
+                       class="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-full transition-colors">
+                        <span>{{ t('dashboard.view_all') }}</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- No Results -->
+            <div x-show="query.length >= 2 && results.length === 0 && !loading"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 class="max-w-md mx-auto text-center py-16">
+
+                <div class="w-20 h-20 mx-auto mb-6 bg-dark-800 rounded-full flex items-center justify-center">
+                    <svg class="w-10 h-10 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+
+                <h3 class="text-xl font-semibold text-white mb-2">{{ t('catalogue.no_results') }}</h3>
+                <p class="text-dark-400 mb-6">{{ t('catalogue.no_results_hint') }}</p>
+
+                <a href="/add" @click="close()" class="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-full transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add new media
+                </a>
+            </div>
+        </div>
     </div>
-</nav>
+</div>
+
+<style>
+/* Search Modal - Netflix/Canal+ style full screen overlay */
+.search-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+}
+
+.search-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #030712;
+}
+
+.search-modal-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #030712;
+}
+
+.search-header {
+    display: flex;
+    align-items: center;
+    height: 64px;
+    padding: 0 16px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #1f2937;
+}
+
+@media (min-width: 640px) {
+    .search-header {
+        padding: 0 24px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .search-header {
+        padding: 0 40px;
+    }
+}
+
+.search-close-btn {
+    margin-right: 16px;
+    padding: 8px;
+    color: #9ca3af;
+    border-radius: 9999px;
+    transition: all 0.2s;
+}
+
+.search-close-btn:hover {
+    color: white;
+    background-color: #1f2937;
+}
+
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: rgba(31, 41, 55, 0.5);
+    border: 1px solid #374151;
+    border-radius: 9999px;
+    padding: 12px 20px;
+    transition: all 0.2s;
+}
+
+.search-input-wrapper:focus-within {
+    border-color: #6366f1;
+    background-color: #1f2937;
+}
+
+.search-input {
+    flex: 1;
+    background: transparent;
+    color: white;
+    font-size: 18px;
+    outline: none;
+    border: none;
+}
+
+.search-input::placeholder {
+    color: #6b7280;
+}
+
+.search-results-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 16px 32px;
+}
+
+@media (min-width: 640px) {
+    .search-results-area {
+        padding: 24px 24px 32px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .search-results-area {
+        padding: 24px 40px 32px;
+    }
+}
+
+/* Smooth scrollbar for search results */
+.search-results-area::-webkit-scrollbar {
+    width: 6px;
+}
+.search-results-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+.search-results-area::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 3px;
+}
+.search-results-area::-webkit-scrollbar-thumb:hover {
+    background: #4B5563;
+}
+</style>
+
+<script>
+function searchModal() {
+    return {
+        isOpen: false,
+        query: '',
+        results: [],
+        loading: false,
+        selectedIndex: -1,
+        abortController: null,
+        modifierKey: '⌘',
+        isMac: false,
+
+        init() {
+            // Detect OS for keyboard shortcuts display
+            const platform = navigator.platform?.toLowerCase() || navigator.userAgent?.toLowerCase() || '';
+            this.isMac = platform.includes('mac');
+
+            if (this.isMac) {
+                this.modifierKey = '⌘';
+            } else {
+                this.modifierKey = 'Ctrl';
+            }
+        },
+
+        open() {
+            this.isOpen = true;
+            document.body.style.overflow = 'hidden';
+            this.$nextTick(() => {
+                if (this.$refs.searchInput) {
+                    this.$refs.searchInput.focus();
+                }
+            });
+        },
+
+        close() {
+            this.isOpen = false;
+            this.query = '';
+            this.results = [];
+            this.selectedIndex = -1;
+            document.body.style.overflow = '';
+        },
+
+        async search() {
+            if (this.query.length < 2) {
+                this.results = [];
+                return;
+            }
+
+            if (this.abortController) {
+                this.abortController.abort();
+            }
+            this.abortController = new AbortController();
+
+            this.loading = true;
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(this.query)}&limit=12`, {
+                    signal: this.abortController.signal
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.results = data.results;
+                    this.selectedIndex = this.results.length > 0 ? 0 : -1;
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    console.error('Search error:', e);
+                }
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        selectNext() {
+            if (this.results.length === 0) return;
+            this.selectedIndex = (this.selectedIndex + 1) % this.results.length;
+        },
+
+        selectPrev() {
+            if (this.results.length === 0) return;
+            this.selectedIndex = this.selectedIndex <= 0 ? this.results.length - 1 : this.selectedIndex - 1;
+        },
+
+        goToSelected() {
+            if (this.selectedIndex >= 0 && this.results[this.selectedIndex]) {
+                window.location.href = '/media/' + this.results[this.selectedIndex].id;
+            } else if (this.query.length >= 2) {
+                window.location.href = '/catalogue?search=' + encodeURIComponent(this.query);
+            }
+        },
+
+        highlightMatch(text, query) {
+            if (!query || query.length < 2) return text;
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            return text.replace(regex, '<span class="text-primary-400 font-semibold">$1</span>');
+        }
+    }
+}
+</script>

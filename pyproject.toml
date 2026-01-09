@@ -42,6 +42,10 @@ dependencies = [
     # Metadata fetchers
     "yt-dlp>=2024.1.7",
 
+    # Web scraping (Letterboxd sync)
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+
     # Vector DB & Embeddings (Phase 6)
     # "chromadb>=0.4.22",
     # "sentence-transformers>=2.2.2",
@@ -87,6 +91,10 @@ select = [
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
+    "ARG001", # unused function argument (needed for FastAPI dependencies)
+    "ARG002", # unused method argument
+    "SIM102", # nested if statements (more readable in some cases)
+    "SIM103", # return condition directly
 ]
 
 [tool.ruff.lint.isort]

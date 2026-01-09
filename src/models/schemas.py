@@ -1,29 +1,13 @@
 """Pydantic schemas for API validation and serialization."""
 
 from datetime import datetime
-from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
-class MediaTypeEnum(str, Enum):
-    """Media type enum for Pydantic."""
-
-    FILM = "film"
-    SERIES = "series"
-    BOOK = "book"
-    YOUTUBE = "youtube"
-    PODCAST = "podcast"
-    SHOW = "show"
-
-
-class MediaStatusEnum(str, Enum):
-    """Media status enum for Pydantic."""
-
-    TO_CONSUME = "to_consume"
-    IN_PROGRESS = "in_progress"
-    FINISHED = "finished"
-    ABANDONED = "abandoned"
+# Re-export enums from media model (avoid duplication)
+from src.models.media import MediaStatus as MediaStatusEnum
+from src.models.media import MediaType as MediaTypeEnum
+from src.models.media import OwnershipType as OwnershipTypeEnum
 
 
 # Base schemas
@@ -42,7 +26,8 @@ class UserRead(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    github_id: int
+    github_id: int | None = None
+    google_id: str | None = None
     created_at: datetime
 
 
@@ -53,6 +38,7 @@ class UserUpdate(BaseModel):
     settings: dict | None = None
     country: str | None = None
     streaming_platforms: list[int] | None = None
+    letterboxd_username: str | None = None
 
 
 # Genre schemas
@@ -110,6 +96,40 @@ class TagRead(TagBase):
     created_at: datetime
 
 
+# Book metadata schemas
+class BookMetadataRead(BaseModel):
+    """Book metadata read schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    kobo_id: str | None = None
+    progress_percent: float | None = None
+    isbn: str | None = None
+    publisher: str | None = None
+
+
+# Book Location schemas
+class BookLocationBase(BaseModel):
+    """Base book location schema."""
+
+    name: str
+
+
+class BookLocationCreate(BookLocationBase):
+    """Book location creation schema."""
+
+    pass
+
+
+class BookLocationRead(BookLocationBase):
+    """Book location read schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+
+
 # Media schemas
 class MediaBase(BaseModel):
     """Base media schema."""
@@ -135,6 +155,7 @@ class MediaCreate(MediaBase):
     genre_ids: list[int] = []
     author_ids: list[int] = []
     tag_ids: list[int] = []
+    consumed_at: datetime | None = None
 
     # Extended metadata (TMDB)
     tmdb_rating: float | None = None
@@ -154,8 +175,12 @@ class MediaCreate(MediaBase):
     # Series-specific
     number_of_seasons: int | None = None
     number_of_episodes: int | None = None
+    current_episode: int | None = None
     series_status: str | None = None
     networks: list[dict] | None = None
+
+    # Letterboxd integration
+    letterboxd_slug: str | None = None
 
 
 class MediaUpdate(BaseModel):
@@ -176,6 +201,10 @@ class MediaUpdate(BaseModel):
     genre_ids: list[int] | None = None
     author_ids: list[int] | None = None
     tag_ids: list[int] | None = None
+    current_episode: int | None = None  # Series watch progress
+    # Book ownership (for books only)
+    ownership_type: OwnershipTypeEnum | None = None
+    ownership_location: str | None = None
 
 
 class MediaRead(MediaBase):
@@ -195,6 +224,11 @@ class MediaRead(MediaBase):
     # Completeness info
     is_complete: bool = True
     missing_fields: list[str] = []
+    # Book ownership
+    ownership_type: OwnershipTypeEnum | None = None
+    ownership_location: str | None = None
+    # Book metadata (Kobo sync, progress)
+    book_metadata: BookMetadataRead | None = None
 
 
 class MediaListRead(BaseModel):

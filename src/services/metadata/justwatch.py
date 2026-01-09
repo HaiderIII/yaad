@@ -58,12 +58,13 @@ query GetUrlTitleDetails($fullPath: String!, $country: Country!) {
 
 # Mapping of JustWatch package IDs to TMDB provider IDs
 # JustWatch uses different IDs than TMDB for some providers
+# We normalize to TMDB IDs since that's what user settings use
 PACKAGE_TO_TMDB = {
     8: 8,       # Netflix
-    9: 9,       # Amazon Prime Video
+    9: 119,     # Amazon Prime Video (JustWatch uses 9, TMDB uses 119)
     10: 10,     # Amazon Video (rent/buy)
-    119: 9,     # Amazon Prime Video (alt ID)
-    1024: 9,    # Amazon Prime Video (another alt)
+    119: 119,   # Amazon Prime Video (TMDB ID)
+    1024: 119,  # Amazon Prime Video (another alt)
     337: 337,   # Disney Plus
     390: 337,   # Disney+ (alt ID)
     381: 381,   # Canal+

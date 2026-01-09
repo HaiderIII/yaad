@@ -18,59 +18,22 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/img/icon-192.svg">
 
-    <!-- Tailwind CSS via CDN (development) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        // Jellyfin-inspired dark theme
-                        primary: {
-                            50: '#f0f5ff',
-                            100: '#e0eaff',
-                            200: '#c7d9fe',
-                            300: '#a4c0fd',
-                            400: '#7e9dfa',
-                            500: '#5c7af4',
-                            600: '#4158e8',
-                            700: '#3346d4',
-                            800: '#2d3aab',
-                            900: '#2a3587',
-                        },
-                        dark: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            850: '#172033',
-                            900: '#0f172a',
-                            950: '#0a0f1a',
-                        },
-                    },
-                },
-            },
-        }
-    </script>
+    <!-- Compiled Tailwind CSS (includes custom.css) -->
+    <link rel="stylesheet" href="/static/css/output.css">
 
-    <!-- HTMX -->
+    <!-- Alpine.js x-cloak support - must be before Alpine loads -->
+    <style>[x-cloak] { display: none !important; }</style>
+
+    <!-- HTMX with preload extension -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
 
     <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.14.7/dist/cdn.min.js"></script>
 
-    <!-- Custom styles -->
-    <link rel="stylesheet" href="/static/css/custom.css">
-
     {% block head %}{% endblock %}
 </head>
-<body class="bg-dark-950 text-dark-100 min-h-screen antialiased">
+<body class="bg-dark-950 text-dark-100 min-h-screen antialiased" hx-ext="preload">
     {% if user %}
     {% include "components/navbar.html" %}
     {% endif %}

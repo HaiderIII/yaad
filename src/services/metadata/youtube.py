@@ -69,8 +69,7 @@ class YouTubeService:
                     return ydl.extract_info(video_url, download=False)
 
             # Run in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            info = await loop.run_in_executor(None, extract)
+            info = await asyncio.to_thread(extract)
 
             if not info:
                 return None

@@ -3,7 +3,7 @@
 {% block title %}Settings - Yaad{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-5">
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-white">Settings</h1>
@@ -27,6 +27,56 @@
                 <p class="text-dark-400 text-sm">{{ user.email }}</p>
                 {% endif %}
             </div>
+        </div>
+    </div>
+
+    <!-- Language Preferences -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6" x-data="languagePreferences()">
+        <h2 class="text-lg font-semibold text-white mb-4">{{ t('settings.language') }}</h2>
+        <p class="text-dark-400 text-sm mb-4">{{ t('settings.language_description') }}</p>
+
+        <div class="flex flex-wrap gap-3">
+            <button type="button"
+                    @click="setLanguage('en')"
+                    :class="currentLocale === 'en' ? 'border-primary-500 bg-primary-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="flex items-center gap-3 px-4 py-3 bg-dark-800 border-2 rounded-lg transition-all">
+                <span class="text-xl">🇬🇧</span>
+                <span class="text-white">English</span>
+                <svg x-show="currentLocale === 'en'" class="w-5 h-5 text-primary-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </button>
+            <button type="button"
+                    @click="setLanguage('fr')"
+                    :class="currentLocale === 'fr' ? 'border-primary-500 bg-primary-500/10' : 'border-dark-700 hover:border-dark-600'"
+                    class="flex items-center gap-3 px-4 py-3 bg-dark-800 border-2 rounded-lg transition-all">
+                <span class="text-xl">🇫🇷</span>
+                <span class="text-white">Français</span>
+                <svg x-show="currentLocale === 'fr'" class="w-5 h-5 text-primary-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Save Status -->
+        <div class="mt-3 flex items-center gap-2 text-sm" x-show="saveStatus" x-transition>
+            <template x-if="saveStatus === 'saving'">
+                <span class="text-dark-400">
+                    <svg class="w-4 h-4 animate-spin inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" class="opacity-75"></path>
+                    </svg>
+                    Saving...
+                </span>
+            </template>
+            <template x-if="saveStatus === 'saved'">
+                <span class="text-green-400">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {{ t('settings.saved') }}
+                </span>
+            </template>
         </div>
     </div>
 
@@ -98,7 +148,7 @@
         <!-- Streaming Platforms Grid -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-dark-300 mb-3">My Streaming Services</label>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {% for provider in available_providers %}
                 <label class="relative cursor-pointer group">
                     <input type="checkbox"
@@ -160,24 +210,410 @@
         </div>
     </div>
 
+    <!-- Letterboxd Connection -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6" x-data="letterboxdSync()">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-[#00e054] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-black" viewBox="0 0 500 500" fill="currentColor">
+                    <path d="M250 500C111.929 500 0 388.071 0 250S111.929 0 250 0s250 111.929 250 250-111.929 250-250 250zm-90-310c-27.614 0-50 22.386-50 50s22.386 50 50 50 50-22.386 50-50-22.386-50-50-50zm180 0c-27.614 0-50 22.386-50 50s22.386 50 50 50 50-22.386 50-50-22.386-50-50-50zm-90 0c-27.614 0-50 22.386-50 50s22.386 50 50 50 50-22.386 50-50-22.386-50-50-50z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-white">Letterboxd</h2>
+                <p class="text-dark-400 text-sm">Sync your film diary automatically</p>
+            </div>
+        </div>
+
+        <!-- Username Connection -->
+        <div class="border border-dark-700 rounded-lg p-4 mb-4">
+            <template x-if="!connected">
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Letterboxd Username</label>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-dark-500">@</span>
+                            <input type="text"
+                                   x-model="username"
+                                   @keyup.enter="connect()"
+                                   placeholder="your_username"
+                                   class="w-full pl-8 pr-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <button @click="connect()"
+                                :disabled="!username || validating"
+                                class="px-4 py-2 bg-[#00e054] hover:bg-[#00c648] disabled:opacity-50 disabled:cursor-not-allowed text-black font-medium rounded-lg transition-colors">
+                            <span x-show="!validating">Connect</span>
+                            <span x-show="validating" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Checking...
+                            </span>
+                        </button>
+                    </div>
+                    <p x-show="error" class="mt-2 text-red-400 text-sm" x-text="error"></p>
+                </div>
+            </template>
+
+            <template x-if="connected">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-white">Connected as <a :href="'https://letterboxd.com/' + connectedUsername" target="_blank" class="text-[#00e054] hover:underline">@<span x-text="connectedUsername"></span></a></span>
+                    </div>
+                    <button @click="disconnect()" class="text-dark-400 hover:text-red-400 text-sm transition-colors">
+                        Disconnect
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <!-- Sync Options (only when connected) -->
+        <template x-if="connected">
+            <div class="space-y-4">
+                <!-- Quick Sync (RSS) -->
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-white font-medium">Quick Sync</h3>
+                            <p class="text-dark-400 text-sm mt-1">Import your ~50 most recent diary entries via RSS feed. Fast and reliable.</p>
+                        </div>
+                        <button @click="sync(false)"
+                                :disabled="syncing"
+                                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!syncing || syncType !== 'rss'">Sync Recent</span>
+                            <span x-show="syncing && syncType === 'rss'" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Syncing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Full Import (Scraping) -->
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-white font-medium">Full Import</h3>
+                            <p class="text-dark-400 text-sm mt-1">Import your entire Letterboxd library. Takes longer but gets everything.</p>
+                        </div>
+                        <button @click="sync(true)"
+                                :disabled="syncing"
+                                class="px-4 py-2 bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!syncing || syncType !== 'full'">Import All</span>
+                            <span x-show="syncing && syncType === 'full'" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Importing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Watchlist Import -->
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-white font-medium">Import Watchlist</h3>
+                            <p class="text-dark-400 text-sm mt-1">Import your Letterboxd watchlist as "To Watch" items.</p>
+                        </div>
+                        <button @click="syncWatchlist()"
+                                :disabled="syncing"
+                                class="px-4 py-2 bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!syncing || syncType !== 'watchlist'">Import Watchlist</span>
+                            <span x-show="syncing && syncType === 'watchlist'" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Importing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div x-show="syncing && progress.total > 0" x-transition class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-white text-sm font-medium">Importing films...</span>
+                        <span class="text-dark-400 text-sm" x-text="`${progress.current}/${progress.total}`"></span>
+                    </div>
+                    <div class="w-full bg-dark-700 rounded-full h-2 mb-2">
+                        <div class="bg-[#00e054] h-2 rounded-full transition-all duration-150"
+                             :style="`width: ${(progress.current / progress.total) * 100}%`"></div>
+                    </div>
+                    <p class="text-dark-400 text-xs truncate" x-text="progress.current_film || progress.message"></p>
+                    <div class="flex gap-4 mt-2 text-xs">
+                        <span class="text-green-400"><span x-text="progress.imported"></span> imported</span>
+                        <span class="text-yellow-400"><span x-text="progress.skipped"></span> skipped</span>
+                        <span class="text-red-400"><span x-text="progress.failed"></span> failed</span>
+                    </div>
+                </div>
+
+                <!-- Scraping Phase -->
+                <div x-show="syncing && progress.phase === 'scraping'" x-transition class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-[#00e054] animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                        </svg>
+                        <span class="text-white text-sm" x-text="progress.message || 'Fetching films from Letterboxd...'"></span>
+                    </div>
+                </div>
+
+                <!-- Result Message -->
+                <div x-show="syncResult" x-transition>
+                    <template x-if="syncResult && syncResult.success">
+                        <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                            <p class="text-green-400 text-sm">
+                                Found <span class="font-medium" x-text="syncResult.total_found"></span> films.
+                                <span class="font-medium" x-text="syncResult.imported"></span> imported,
+                                <span x-text="syncResult.skipped"></span> skipped,
+                                <span x-text="syncResult.failed"></span> failed.
+                            </p>
+                        </div>
+                    </template>
+                    <template x-if="syncResult && !syncResult.success">
+                        <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                            <p class="text-red-400 text-sm" x-text="syncResult.error"></p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Failed imports details -->
+                <div x-show="syncResult && syncResult.errors && syncResult.errors.length > 0" x-transition class="border border-red-500/20 rounded-lg overflow-hidden">
+                    <button @click="showErrors = !showErrors" class="w-full p-3 bg-red-500/10 flex items-center justify-between text-left">
+                        <span class="text-red-400 text-sm font-medium">
+                            <span x-text="syncResult?.errors?.length || 0"></span> film(s) failed to import
+                        </span>
+                        <svg class="w-4 h-4 text-red-400 transition-transform" :class="showErrors && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div x-show="showErrors" x-transition.origin.top class="p-3 bg-dark-800/50">
+                        <ul class="space-y-1 text-xs text-dark-400">
+                            <template x-for="error in (syncResult?.errors || [])" :key="error">
+                                <li class="flex items-start gap-2">
+                                    <span class="text-red-400 mt-0.5">-</span>
+                                    <span x-text="error"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- CSV Import Alternative -->
+        <div class="mt-4 pt-4 border-t border-dark-700" x-data="{ showCsv: false }">
+            <button @click="showCsv = !showCsv" class="text-dark-400 hover:text-dark-300 text-sm flex items-center gap-1">
+                <svg class="w-4 h-4 transition-transform" :class="showCsv && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                Or import from CSV export
+            </button>
+
+            <div x-show="showCsv" x-transition.origin.top class="mt-4" x-data="importData()">
+                <p class="text-dark-400 text-sm mb-3">
+                    Export your data from <a href="https://letterboxd.com/settings/data/" target="_blank" class="text-primary-400 hover:underline">Letterboxd Settings</a>,
+                    then upload <code class="text-xs bg-dark-700 px-1.5 py-0.5 rounded">diary.csv</code> or <code class="text-xs bg-dark-700 px-1.5 py-0.5 rounded">watched.csv</code>.
+                </p>
+
+                <!-- Upload Area -->
+                <label
+                    class="relative flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors"
+                    :class="isDragging ? 'border-primary-500 bg-primary-500/10' : 'border-dark-600 hover:border-dark-500 bg-dark-800/50'"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop($event)">
+                    <input type="file" accept=".csv" class="hidden" @change="handleFileSelect($event)" x-ref="fileInput">
+                    <template x-if="!importing && !selectedFile">
+                        <p class="text-dark-400 text-sm">Drop CSV file here or click to browse</p>
+                    </template>
+                    <template x-if="selectedFile && !importing">
+                        <p class="text-white text-sm" x-text="selectedFile.name"></p>
+                    </template>
+                    <template x-if="importing">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-primary-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                            </svg>
+                            <span class="text-dark-400 text-sm">Importing...</span>
+                        </div>
+                    </template>
+                </label>
+
+                <div class="mt-3 flex items-center gap-3" x-show="selectedFile && !importing">
+                    <button @click="startImport()" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded text-sm">Import</button>
+                    <button @click="clearFile()" class="text-dark-400 hover:text-dark-300 text-sm">Cancel</button>
+                </div>
+
+                <div class="mt-3" x-show="result" x-transition>
+                    <template x-if="result && result.success">
+                        <p class="text-green-400 text-sm"><span class="font-medium" x-text="result.imported"></span> imported, <span x-text="result.skipped"></span> skipped</p>
+                    </template>
+                    <template x-if="result && !result.success">
+                        <p class="text-red-400 text-sm" x-text="result.error"></p>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kobo Connection -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6" x-data="koboSync()">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-[#bf0000] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-white">Kobo</h2>
+                <p class="text-dark-400 text-sm">Sync your reading progress from Kobo</p>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="border border-dark-700 rounded-lg p-4 mb-4">
+            <template x-if="!connected">
+                <div>
+                    <p class="text-dark-400 text-sm mb-4">Connect your Kobo account to sync reading progress for your ebooks.</p>
+
+                    <!-- Step 1: Start Activation -->
+                    <template x-if="!activationStarted">
+                        <button @click="startActivation()"
+                                :disabled="loading"
+                                class="px-4 py-2 bg-[#bf0000] hover:bg-[#a00000] disabled:opacity-50 text-white font-medium rounded-lg transition-colors">
+                            <span x-show="!loading">Connect Kobo Account</span>
+                            <span x-show="loading" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Starting...
+                            </span>
+                        </button>
+                    </template>
+
+                    <!-- Step 2: Show Activation Link -->
+                    <template x-if="activationStarted && !connected">
+                        <div class="space-y-4">
+                            <div class="p-4 bg-dark-800 rounded-lg">
+                                <p class="text-white font-medium mb-2">Step 1: Enter Code on Kobo</p>
+                                <p class="text-dark-400 text-sm mb-3">Go to kobo.com/activate and enter this code:</p>
+                                <div class="flex items-center gap-3 mb-3">
+                                    <code class="text-2xl font-mono font-bold text-[#bf0000] bg-dark-700 px-4 py-2 rounded tracking-wider" x-text="userCode"></code>
+                                    <button @click="copyCode()" class="text-dark-400 hover:text-white" title="Copy code">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <a :href="activationUrl" target="_blank" rel="noopener" @click="startPolling()"
+                                   class="inline-flex items-center gap-2 px-4 py-2 bg-[#bf0000] hover:bg-[#a00000] text-white rounded-lg transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    Open Kobo Activation
+                                </a>
+                            </div>
+
+                            <div class="p-4 bg-dark-800 rounded-lg">
+                                <p class="text-white font-medium mb-2">Step 2: Waiting for Authorization</p>
+                                <template x-if="!polling">
+                                    <p class="text-dark-400 text-sm">Click "Open Kobo Activation" above to start. We'll automatically detect when you've authorized.</p>
+                                </template>
+                                <template x-if="polling">
+                                    <div class="flex items-center gap-3">
+                                        <svg class="w-5 h-5 text-primary-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                        </svg>
+                                        <span class="text-primary-400">Waiting for you to authorize on Kobo...</span>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <button @click="cancelActivation()" class="text-dark-400 hover:text-dark-300 text-sm">
+                                Cancel
+                            </button>
+                        </div>
+                    </template>
+
+                    <p x-show="error" class="mt-3 text-red-400 text-sm" x-text="error"></p>
+                </div>
+            </template>
+
+            <template x-if="connected">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-white">Connected to Kobo</span>
+                    </div>
+                    <button @click="disconnect()" class="text-dark-400 hover:text-red-400 text-sm transition-colors">
+                        Disconnect
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <!-- Sync Options (only when connected) -->
+        <template x-if="connected">
+            <div class="space-y-4">
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-white font-medium">Sync Reading Progress</h3>
+                            <p class="text-dark-400 text-sm mt-1">Update your Yaad library with reading progress from Kobo. Matches books by ISBN or title.</p>
+                        </div>
+                        <button @click="syncProgress()"
+                                :disabled="syncing"
+                                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!syncing">Sync Now</span>
+                            <span x-show="syncing" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Syncing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Message -->
+                <div x-show="syncResult" x-transition>
+                    <template x-if="syncResult && syncResult.success">
+                        <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                            <p class="text-green-400 text-sm" x-text="syncResult.message"></p>
+                        </div>
+                    </template>
+                    <template x-if="syncResult && !syncResult.success">
+                        <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                            <p class="text-red-400 text-sm" x-text="syncResult.error"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
     <!-- Integrations (Phase 4+) -->
     <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
         <h2 class="text-lg font-semibold text-white mb-4">Integrations</h2>
         <div class="space-y-4">
             <!-- Jellyfin -->
-            <div class="flex items-center justify-between py-3 border-b border-dark-800">
+            <div class="flex items-center justify-between py-3">
                 <div>
                     <p class="text-white">Jellyfin</p>
                     <p class="text-dark-500 text-sm">Sync watch history from your Jellyfin server</p>
-                </div>
-                <span class="text-dark-500 text-sm">Coming soon</span>
-            </div>
-
-            <!-- Kobo -->
-            <div class="flex items-center justify-between py-3">
-                <div>
-                    <p class="text-white">Kobo</p>
-                    <p class="text-dark-500 text-sm">Import reading progress and annotations</p>
                 </div>
                 <span class="text-dark-500 text-sm">Coming soon</span>
             </div>
@@ -203,6 +639,361 @@
 
 {% block scripts %}
 <script>
+function letterboxdSync() {
+    return {
+        username: '',
+        connectedUsername: '{{ user.letterboxd_username or "" }}',
+        connected: {{ 'true' if user.letterboxd_username else 'false' }},
+        validating: false,
+        error: null,
+        syncing: false,
+        syncType: null,
+        syncResult: null,
+        showErrors: false,
+        progress: {
+            phase: null,
+            message: '',
+            current: 0,
+            total: 0,
+            imported: 0,
+            skipped: 0,
+            failed: 0,
+            current_film: ''
+        },
+
+        async connect() {
+            if (!this.username) return;
+
+            this.validating = true;
+            this.error = null;
+
+            try {
+                // Validate username exists
+                const response = await fetch(`/api/import/letterboxd/validate?username=${encodeURIComponent(this.username)}`);
+                const data = await response.json();
+
+                if (!data.valid) {
+                    this.error = 'Username not found on Letterboxd';
+                    this.validating = false;
+                    return;
+                }
+
+                // Save to user profile
+                const saveResponse = await fetch('/api/user/streaming-preferences', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ letterboxd_username: data.username })
+                });
+
+                if (saveResponse.ok) {
+                    this.connectedUsername = data.username;
+                    this.connected = true;
+                    this.username = '';
+                } else {
+                    this.error = 'Failed to save username';
+                }
+            } catch (e) {
+                this.error = 'Connection error. Please try again.';
+            } finally {
+                this.validating = false;
+            }
+        },
+
+        async disconnect() {
+            try {
+                const response = await fetch('/api/user/streaming-preferences', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ letterboxd_username: null })
+                });
+
+                if (response.ok) {
+                    this.connected = false;
+                    this.connectedUsername = '';
+                    this.syncResult = null;
+                }
+            } catch (e) {
+                console.error('Failed to disconnect:', e);
+            }
+        },
+
+        async syncWatchlist() {
+            this.syncing = true;
+            this.syncType = 'watchlist';
+            this.syncResult = null;
+            this.progress = {
+                phase: 'scraping',
+                message: 'Fetching watchlist from Letterboxd...',
+                current: 0,
+                total: 0,
+                imported: 0,
+                skipped: 0,
+                failed: 0,
+                current_film: ''
+            };
+
+            try {
+                const params = new URLSearchParams({
+                    skip_existing: true,
+                    fetch_metadata: true
+                });
+
+                // Use SSE for progress streaming
+                const eventSource = new EventSource(`/api/import/letterboxd/watchlist-stream?${params}`);
+
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.phase === 'scraping') {
+                        this.progress.phase = 'scraping';
+                        this.progress.message = data.message;
+                    } else if (data.phase === 'importing') {
+                        this.progress.phase = 'importing';
+                        this.progress.current = data.current || 0;
+                        this.progress.total = data.total || 0;
+                        this.progress.imported = data.imported || 0;
+                        this.progress.skipped = data.skipped || 0;
+                        this.progress.failed = data.failed || 0;
+                        this.progress.current_film = data.current_film || '';
+                        this.progress.message = data.message || '';
+                    } else if (data.phase === 'done') {
+                        eventSource.close();
+                        this.syncResult = {
+                            success: true,
+                            total_found: data.total_found,
+                            imported: data.imported,
+                            skipped: data.skipped,
+                            failed: data.failed,
+                            errors: data.errors || []
+                        };
+                        this.showErrors = false;
+                        this.syncing = false;
+                    } else if (data.phase === 'error') {
+                        eventSource.close();
+                        this.syncResult = {
+                            success: false,
+                            error: data.message || 'Watchlist sync failed'
+                        };
+                        this.syncing = false;
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    eventSource.close();
+                    if (this.syncing) {
+                        this.syncResult = {
+                            success: false,
+                            error: 'Connection lost. Please try again.'
+                        };
+                        this.syncing = false;
+                    }
+                };
+            } catch (e) {
+                this.syncResult = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+                this.syncing = false;
+            }
+        },
+
+        async sync(fullImport) {
+            this.syncing = true;
+            this.syncType = fullImport ? 'full' : 'rss';
+            this.syncResult = null;
+            this.progress = {
+                phase: 'scraping',
+                message: 'Fetching films from Letterboxd...',
+                current: 0,
+                total: 0,
+                imported: 0,
+                skipped: 0,
+                failed: 0,
+                current_film: ''
+            };
+
+            try {
+                const params = new URLSearchParams({
+                    full_import: fullImport,
+                    skip_existing: true,
+                    fetch_metadata: true
+                });
+
+                // Use SSE for progress streaming
+                const eventSource = new EventSource(`/api/import/letterboxd/sync-stream?${params}`);
+
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.phase === 'scraping') {
+                        this.progress.phase = 'scraping';
+                        this.progress.message = data.message;
+                    } else if (data.phase === 'importing') {
+                        this.progress.phase = 'importing';
+                        this.progress.current = data.current || 0;
+                        this.progress.total = data.total || 0;
+                        this.progress.imported = data.imported || 0;
+                        this.progress.skipped = data.skipped || 0;
+                        this.progress.failed = data.failed || 0;
+                        this.progress.current_film = data.current_film || '';
+                        this.progress.message = data.message || '';
+                    } else if (data.phase === 'done') {
+                        eventSource.close();
+                        this.syncResult = {
+                            success: true,
+                            total_found: data.total_found,
+                            imported: data.imported,
+                            skipped: data.skipped,
+                            failed: data.failed,
+                            errors: data.errors || []
+                        };
+                        this.showErrors = false;
+                        this.syncing = false;
+                    } else if (data.phase === 'error') {
+                        eventSource.close();
+                        this.syncResult = {
+                            success: false,
+                            error: data.message || 'Sync failed'
+                        };
+                        this.syncing = false;
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    eventSource.close();
+                    if (this.syncing) {
+                        this.syncResult = {
+                            success: false,
+                            error: 'Connection lost. Please try again.'
+                        };
+                        this.syncing = false;
+                    }
+                };
+            } catch (e) {
+                this.syncResult = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+                this.syncing = false;
+            }
+        }
+    }
+}
+
+function languagePreferences() {
+    return {
+        currentLocale: '{{ locale }}',
+        saveStatus: null,
+
+        async setLanguage(locale) {
+            if (this.currentLocale === locale) return;
+
+            this.saveStatus = 'saving';
+            try {
+                const response = await fetch('/api/user/locale', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locale: locale })
+                });
+
+                if (response.ok) {
+                    this.currentLocale = locale;
+                    this.saveStatus = 'saved';
+                    // Reload page to apply new locale
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    this.saveStatus = 'error';
+                }
+            } catch (e) {
+                this.saveStatus = 'error';
+            }
+        }
+    }
+}
+
+function importData() {
+    return {
+        isDragging: false,
+        selectedFile: null,
+        importing: false,
+        skipExisting: true,
+        fetchMetadata: true,
+        result: null,
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                this.selectedFile = file;
+                this.result = null;
+            }
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const file = event.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                this.selectedFile = file;
+                this.result = null;
+            }
+        },
+
+        clearFile() {
+            this.selectedFile = null;
+            this.result = null;
+            this.$refs.fileInput.value = '';
+        },
+
+        async startImport() {
+            if (!this.selectedFile) return;
+
+            this.importing = true;
+            this.result = null;
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            try {
+                const params = new URLSearchParams({
+                    skip_existing: this.skipExisting,
+                    fetch_metadata: this.fetchMetadata
+                });
+
+                const response = await fetch(`/api/import/letterboxd?${params}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.result = {
+                        success: true,
+                        imported: data.imported,
+                        skipped: data.skipped,
+                        failed: data.failed
+                    };
+                    this.selectedFile = null;
+                    this.$refs.fileInput.value = '';
+                } else {
+                    const error = await response.json();
+                    this.result = {
+                        success: false,
+                        error: error.detail || 'Import failed'
+                    };
+                }
+            } catch (e) {
+                this.result = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+            } finally {
+                this.importing = false;
+            }
+        }
+    }
+}
+
 function streamingPreferences() {
     return {
         country: '{{ user_country }}',
@@ -268,6 +1059,190 @@ function streamingPreferences() {
             setTimeout(() => {
                 this.saveStatus = null;
             }, 2000);
+        }
+    }
+}
+
+function koboSync() {
+    return {
+        connected: {{ 'true' if user.kobo_device_id else 'false' }},
+        loading: false,
+        error: null,
+        activationStarted: false,
+        activationUrl: '',
+        userCode: '',
+        deviceId: '',
+        pollingUrl: '',
+        polling: false,
+        pollingInterval: null,
+        syncing: false,
+        syncResult: null,
+
+        async startActivation() {
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await fetch('/api/kobo/activate/start', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.activationUrl = data.activation_url;
+                    this.userCode = data.user_code;
+                    this.deviceId = data.device_id;
+                    this.pollingUrl = data.polling_url;
+                    this.activationStarted = true;
+                } else {
+                    const error = await response.json();
+                    this.error = error.detail || 'Failed to start activation';
+                }
+            } catch (e) {
+                this.error = 'Network error. Please try again.';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async startPolling() {
+            this.polling = true;
+            this.error = null;
+
+            // Poll every 3 seconds
+            this.pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/kobo/activate/check', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            device_id: this.deviceId,
+                            polling_url: this.pollingUrl
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.complete && data.user_key) {
+                            // Stop polling
+                            clearInterval(this.pollingInterval);
+                            this.pollingInterval = null;
+
+                            // Complete the activation
+                            await this.completeActivation(data.user_key);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Polling error:', e);
+                }
+            }, 3000);
+
+            // Stop polling after 5 minutes
+            setTimeout(() => {
+                if (this.pollingInterval) {
+                    clearInterval(this.pollingInterval);
+                    this.pollingInterval = null;
+                    this.polling = false;
+                    this.error = 'Activation timeout. Please try again.';
+                }
+            }, 5 * 60 * 1000);
+        },
+
+        async completeActivation(userKey) {
+            this.loading = true;
+
+            try {
+                const response = await fetch('/api/kobo/activate/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: this.deviceId,
+                        user_key: userKey
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.connected = data.connected;
+                    this.activationStarted = false;
+                    this.polling = false;
+                } else {
+                    const error = await response.json();
+                    this.error = error.detail || 'Activation failed';
+                    this.polling = false;
+                }
+            } catch (e) {
+                this.error = 'Network error. Please try again.';
+                this.polling = false;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        cancelActivation() {
+            if (this.pollingInterval) {
+                clearInterval(this.pollingInterval);
+                this.pollingInterval = null;
+            }
+            this.activationStarted = false;
+            this.activationUrl = '';
+            this.userCode = '';
+            this.deviceId = '';
+            this.pollingUrl = '';
+            this.polling = false;
+            this.error = null;
+        },
+
+        copyCode() {
+            // Copy without spaces
+            navigator.clipboard.writeText(this.userCode.replace(/\s/g, ''));
+        },
+
+        async disconnect() {
+            try {
+                const response = await fetch('/api/kobo/disconnect', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    this.connected = false;
+                    this.syncResult = null;
+                }
+            } catch (e) {
+                console.error('Failed to disconnect:', e);
+            }
+        },
+
+        async syncProgress() {
+            this.syncing = true;
+            this.syncResult = null;
+
+            try {
+                const response = await fetch('/api/kobo/sync', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.syncResult = {
+                        success: true,
+                        message: data.message
+                    };
+                } else {
+                    this.syncResult = {
+                        success: false,
+                        error: data.detail || 'Sync failed'
+                    };
+                }
+            } catch (e) {
+                this.syncResult = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+            } finally {
+                this.syncing = false;
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 """User model."""
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, String
@@ -9,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from src.models.media import Media, Tag
+    from src.models.media import BookLocation, Media, Tag
 
 
 class User(Base, TimestampMixin):
@@ -28,22 +27,37 @@ class User(Base, TimestampMixin):
     country: Mapped[str] = mapped_column(String(2), default="FR")  # ISO 3166-1 alpha-2
     streaming_platforms: Mapped[list] = mapped_column(JSON, default=list)  # List of provider IDs
 
+    # External service connections
+    letterboxd_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Kobo integration (stores device credentials for API access)
+    kobo_user_key: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    kobo_device_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # OAuth provider IDs (nullable - user has at least one)
     github_id: Mapped[int | None] = mapped_column(unique=True, index=True, nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
 
     # Relationships
+    # Using lazy="select" to prevent automatic loading of all media when fetching user
+    # Media should be explicitly queried with filters/pagination
     media: Mapped[list["Media"]] = relationship(
         "Media",
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
     )
     tags: Mapped[list["Tag"]] = relationship(
         "Tag",
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="select",
+    )
+    book_locations: Mapped[list["BookLocation"]] = relationship(
+        "BookLocation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select",
     )
 
     def __repr__(self) -> str:

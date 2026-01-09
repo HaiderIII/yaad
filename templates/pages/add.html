@@ -3,7 +3,7 @@
 {% block title %}Add Media - Yaad{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="addMedia()">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-5" x-data="addMedia()">
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-white">Add Media</h1>
@@ -13,7 +13,7 @@
     <!-- Type Selection -->
     <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
         <label class="block text-sm font-medium text-dark-300 mb-3">Media Type</label>
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
             <button type="button"
                     @click="selectType('film')"
                     :class="mediaType === 'film' ? 'border-blue-500 bg-blue-500/10' : 'border-dark-700 hover:border-dark-600'"

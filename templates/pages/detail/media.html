@@ -4,7 +4,7 @@
 {% block title %}{{ media.title }} - Yaad{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="mediaDetail()">
+<div class="px-4 sm:px-6 lg:px-10 xl:px-12 py-5" x-data="mediaDetail()">
     <!-- Back link -->
     <a href="/catalogue" class="inline-flex items-center text-dark-400 hover:text-white mb-6 transition-colors">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,6 +152,40 @@
                         </select>
                     </div>
 
+                    <!-- Episode Progress (Series only) -->
+                    {% if media.type.value == 'series' and media.number_of_episodes %}
+                    <div class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">Progress</span>
+                        <div class="flex items-center gap-2">
+                            <button @click="decrementEpisode()"
+                                    :disabled="currentEpisode <= 0"
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-dark-800 border border-dark-700 text-dark-300 hover:text-white hover:border-dark-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                                </svg>
+                            </button>
+                            <div class="flex items-center gap-1 min-w-[5rem] justify-center">
+                                <span class="text-white font-medium" x-text="currentEpisode"></span>
+                                <span class="text-dark-500">/</span>
+                                <span class="text-dark-400">{{ media.number_of_episodes }}</span>
+                                <span class="text-dark-500 text-xs ml-1">ep.</span>
+                            </div>
+                            <button @click="incrementEpisode()"
+                                    :disabled="currentEpisode >= {{ media.number_of_episodes }}"
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-dark-800 border border-dark-700 text-dark-300 hover:text-white hover:border-dark-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <!-- Progress bar -->
+                        <div class="hidden sm:block w-24 h-2 bg-dark-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-cyan-500 transition-all duration-300"
+                                 :style="'width: ' + (currentEpisode / {{ media.number_of_episodes }} * 100) + '%'"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Rating -->
                     <div class="flex items-center gap-3">
                         <span class="text-dark-400 text-sm">My Rating</span>
@@ -180,7 +214,141 @@
                             </button>
                         </div>
                     </div>
+
+                    {% if media.type.value == 'film' and letterboxd_connected %}
+                    <!-- Friends' Ratings (inline) -->
+                    <div class="flex items-center gap-3" x-data="friendsRatings()">
+                        <div class="flex items-center gap-2">
+                            <!-- Letterboxd logo - three overlapping circles -->
+                            <div class="flex items-center -space-x-1 flex-shrink-0">
+                                <div class="w-4 h-4 rounded-full bg-[#ff8000]"></div>
+                                <div class="w-4 h-4 rounded-full bg-[#00e054]"></div>
+                                <div class="w-4 h-4 rounded-full bg-[#40bcf4]"></div>
+                            </div>
+                            <span class="text-dark-400 text-sm">Friends' Ratings</span>
+                        </div>
+                        <!-- Load button -->
+                        <button @click="loadRatings()" x-show="!loaded && !loading" class="text-xs text-[#00e054] hover:underline">Load</button>
+                        <!-- Loading spinner -->
+                        <svg x-show="loading" class="w-4 h-4 text-[#00e054] animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                        </svg>
+                        <!-- Average rating display -->
+                        <template x-if="loaded && averageRating">
+                            <div class="flex items-center gap-1">
+                                <svg class="w-4 h-4 text-[#00e054]" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                </svg>
+                                <span class="text-white text-sm font-medium" x-text="averageRating + '/5'"></span>
+                                <span class="text-dark-500 text-xs" x-text="'(' + ratings.filter(r => r.rating).length + ')'"></span>
+                            </div>
+                        </template>
+                        <!-- No ratings message -->
+                        <template x-if="loaded && ratings.length === 0">
+                            <span class="text-dark-500 text-sm">-</span>
+                        </template>
+                        <!-- Error -->
+                        <template x-if="error">
+                            <span class="text-red-400 text-xs" x-text="error"></span>
+                        </template>
+                        <!-- Rate on Letterboxd link -->
+                        {% if film_slug %}
+                        <a href="https://letterboxd.com/film/{{ film_slug }}/"
+                           target="_blank"
+                           rel="noopener"
+                           class="text-xs text-dark-400 hover:text-[#00e054] transition-colors flex items-center gap-1"
+                           title="Rate on Letterboxd">
+                            Rate
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if media.type.value == 'book' %}
+                    <!-- Book Reading Progress (Kobo sync) -->
+                    {% if media.book_metadata and media.book_metadata.progress_percent %}
+                    <div class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">Progress</span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-24 h-2 bg-dark-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-green-500 transition-all duration-300"
+                                     style="width: {{ media.book_metadata.progress_percent }}%"></div>
+                            </div>
+                            <span class="text-white text-sm font-medium">{{ "%.0f"|format(media.book_metadata.progress_percent) }}%</span>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Book Ownership (inline) -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">Ownership</span>
+                        <select x-model="ownershipType"
+                                @change="updateOwnership()"
+                                class="bg-dark-800 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="none">Don't own</option>
+                            <option value="physical">Physical</option>
+                            <option value="ebook">E-book</option>
+                            <option value="both">Both</option>
+                        </select>
+                        <div x-show="ownershipType !== 'none'" class="flex items-center gap-1 text-green-400">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Location (only show if physical or both) -->
+                    <div x-show="ownershipType === 'physical' || ownershipType === 'both'" class="flex items-center gap-3">
+                        <span class="text-dark-400 text-sm">Location</span>
+                        <div class="flex items-center gap-2">
+                            <select x-model="ownershipLocation"
+                                    @change="updateOwnership()"
+                                    class="bg-dark-800 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <option value="">Not specified</option>
+                                <template x-for="loc in bookLocations" :key="loc.id">
+                                    <option :value="loc.name" x-text="loc.name"></option>
+                                </template>
+                            </select>
+                            <button @click="showAddLocation = true"
+                                    class="p-1.5 text-dark-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
+                                    title="Add new location">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
+
+                <!-- Add Location Mini Modal (for books) -->
+                {% if media.type.value == 'book' %}
+                <div x-show="showAddLocation" x-cloak class="mb-6 p-3 bg-dark-800 rounded-lg border border-dark-700">
+                    <div class="flex items-center gap-2">
+                        <input type="text"
+                               x-model="newLocationName"
+                               @keydown.enter="addLocation()"
+                               @keydown.escape="showAddLocation = false; newLocationName = ''"
+                               placeholder="e.g., Living Room, Office..."
+                               class="flex-1 bg-dark-900 border border-dark-600 rounded-lg px-3 py-1.5 text-sm text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <button @click="addLocation()"
+                                :disabled="!newLocationName.trim()"
+                                class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 disabled:text-dark-500 text-white text-sm rounded-lg transition-colors">
+                            Add
+                        </button>
+                        <button @click="showAddLocation = false; newLocationName = ''"
+                                class="p-1.5 text-dark-400 hover:text-white transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- YouTube: Channel + Watch button -->
                 {% if media.type.value == 'youtube' %}
@@ -512,16 +680,60 @@
 
 {% block scripts %}
 <script>
+{% if media.type.value == 'film' and letterboxd_connected %}
+function friendsRatings() {
+    return {
+        filmSlug: '{{ film_slug }}',
+        loading: false,
+        loaded: false,
+        ratings: [],
+        averageRating: null,
+        error: null,
+
+        async loadRatings() {
+            if (this.loading || this.loaded) return;
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await fetch(`/api/import/letterboxd/friends-ratings/${encodeURIComponent(this.filmSlug)}`);
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to load ratings');
+                }
+
+                const data = await response.json();
+                this.ratings = data.ratings;
+                this.averageRating = data.average_rating;
+                this.loaded = true;
+            } catch (e) {
+                this.error = e.message;
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+{% endif %}
+
 function mediaDetail() {
     return {
         mediaId: {{ media.id }},
         status: '{{ media.status.value }}',
         rating: {{ media.rating if media.rating else 'null' }},
         notes: `{{ media.notes | default('', true) | replace('`', '\\`') | replace('\n', '\\n') }}`,
+        currentEpisode: {{ media.current_episode if media.current_episode else 0 }},
+        totalEpisodes: {{ media.number_of_episodes if media.number_of_episodes else 0 }},
         updating: false,
         hoverRating: null,
         showEditModal: false,
         saving: false,
+        // Book ownership
+        ownershipType: '{{ media.ownership_type.value if media.ownership_type else "none" }}',
+        ownershipLocation: '{{ media.ownership_location | default("", true) }}',
+        bookLocations: [],
+        showAddLocation: false,
+        newLocationName: '',
         editForm: {
             title: `{{ media.title | replace('`', '\\`') }}`,
             year: {{ media.year if media.year else 'null' }},
@@ -532,6 +744,61 @@ function mediaDetail() {
             external_id: `{{ media.external_id | default('', true) }}`,
             external_url: `{{ media.external_url | default('', true) }}`,
             authors: `{{ media.authors | map(attribute='name') | join(', ') }}`,
+        },
+
+        async init() {
+            // Load book locations if this is a book
+            {% if media.type.value == 'book' %}
+            await this.loadBookLocations();
+            {% endif %}
+        },
+
+        async loadBookLocations() {
+            try {
+                const res = await fetch('/api/user/book-locations');
+                if (res.ok) {
+                    this.bookLocations = await res.json();
+                }
+            } catch (e) { console.error(e); }
+        },
+
+        async updateOwnership() {
+            if (this.updating) return;
+            this.updating = true;
+            try {
+                const payload = {
+                    ownership_type: this.ownershipType,
+                    ownership_location: (this.ownershipType === 'physical' || this.ownershipType === 'both') ? this.ownershipLocation : null,
+                };
+                await fetch(`/api/media/${this.mediaId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } catch (e) { console.error(e); }
+            finally { this.updating = false; }
+        },
+
+        async addLocation() {
+            if (!this.newLocationName.trim()) return;
+            try {
+                const res = await fetch('/api/user/book-locations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: this.newLocationName.trim() }),
+                });
+                if (res.ok) {
+                    const newLoc = await res.json();
+                    this.bookLocations.push(newLoc);
+                    this.ownershipLocation = newLoc.name;
+                    this.newLocationName = '';
+                    this.showAddLocation = false;
+                    await this.updateOwnership();
+                } else {
+                    const data = await res.json();
+                    alert(data.detail || 'Failed to add location');
+                }
+            } catch (e) { alert('Failed to add location'); }
         },
 
         get displayRating() {
@@ -562,21 +829,42 @@ function mediaDetail() {
             return 'empty';
         },
 
-        async updateMedia() {
+        async updateMedia(includeEpisode = false) {
             if (this.updating) return;
             this.updating = true;
             try {
-                await fetch(`/api/media/${this.mediaId}`, {
+                const payload = {
+                    status: this.status,
+                    rating: this.rating ? parseFloat(this.rating) : null,
+                    notes: this.notes || null,
+                };
+                if (includeEpisode) {
+                    payload.current_episode = this.currentEpisode;
+                }
+                const res = await fetch(`/api/media/${this.mediaId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        status: this.status,
-                        rating: this.rating ? parseFloat(this.rating) : null,
-                        notes: this.notes || null,
-                    }),
+                    body: JSON.stringify(payload),
                 });
+                // Update status from response if episode changed it
+                if (includeEpisode && res.ok) {
+                    const data = await res.json();
+                    if (data.status) this.status = data.status;
+                }
             } catch (e) { console.error(e); }
             finally { this.updating = false; }
+        },
+
+        async incrementEpisode() {
+            if (this.currentEpisode >= this.totalEpisodes) return;
+            this.currentEpisode++;
+            await this.updateMedia(true);
+        },
+
+        async decrementEpisode() {
+            if (this.currentEpisode <= 0) return;
+            this.currentEpisode--;
+            await this.updateMedia(true);
         },
 
         async confirmDelete() {

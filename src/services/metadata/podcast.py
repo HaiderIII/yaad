@@ -279,7 +279,7 @@ class PodcastService:
                         )
 
                 if not entity:
-                    logger.warning(f"No entity data found in Spotify embed page, falling back to oEmbed")
+                    logger.warning("No entity data found in Spotify embed page, falling back to oEmbed")
                     return await self._extract_from_spotify_oembed(url)
 
                 # Extract title (remove date suffix if present)
