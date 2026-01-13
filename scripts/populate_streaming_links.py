@@ -2,14 +2,15 @@
 """Populate streaming_links for all films and series.
 
 This script fetches streaming availability from JustWatch for all media
-that don't have streaming_links cached yet.
+that don't have streaming_links cached yet or have outdated links.
 
 Usage:
-    python scripts/populate_streaming_links.py [--all] [--user-id=ID]
+    python scripts/populate_streaming_links.py [--all] [--user-id=ID] [--days=N]
 
 Options:
     --all       Refresh all media, even those with existing links
     --user-id   Only process media for a specific user
+    --days      Refresh links older than N days (default: 1)
 """
 
 import argparse
@@ -29,7 +30,11 @@ from src.models.user import User
 from src.services.metadata.justwatch import justwatch_service
 
 
-async def populate_streaming_links(refresh_all: bool = False, user_id: int | None = None) -> None:
+async def populate_streaming_links(
+    refresh_all: bool = False,
+    user_id: int | None = None,
+    max_age_days: int = 1,
+) -> None:
     """Populate streaming_links for all films and series."""
     async with async_session_maker() as db:
         # Build query
@@ -39,8 +44,8 @@ async def populate_streaming_links(refresh_all: bool = False, user_id: int | Non
             query = query.where(Media.user_id == user_id)
 
         if not refresh_all:
-            # Only get media without streaming_links or with old links (> 7 days)
-            cutoff = datetime.now(UTC) - timedelta(days=7)
+            # Only get media without streaming_links or with old links
+            cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
             query = query.where(
                 (Media.streaming_links.is_(None))
                 | (Media.streaming_links_updated.is_(None))
@@ -108,6 +113,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Populate streaming links for media")
     parser.add_argument("--all", action="store_true", help="Refresh all media, even with existing links")
     parser.add_argument("--user-id", type=int, help="Only process media for a specific user")
+    parser.add_argument("--days", type=int, default=1, help="Refresh links older than N days (default: 1)")
     args = parser.parse_args()
 
-    asyncio.run(populate_streaming_links(refresh_all=args.all, user_id=args.user_id))
+    asyncio.run(populate_streaming_links(
+        refresh_all=args.all,
+        user_id=args.user_id,
+        max_age_days=args.days,
+    ))

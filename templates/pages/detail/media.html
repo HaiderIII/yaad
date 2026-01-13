@@ -5,8 +5,8 @@
 
 {% block content %}
 <div class="px-4 sm:px-6 lg:px-10 xl:px-12 py-5" x-data="mediaDetail()">
-    <!-- Back link -->
-    <a href="/catalogue" class="inline-flex items-center text-dark-400 hover:text-white mb-6 transition-colors">
+    <!-- Back link - uses saved catalogue URL to preserve filters -->
+    <a id="back-to-catalogue" href="/catalogue" onclick="event.preventDefault(); window.location.href = (typeof CatalogueFilters !== 'undefined' ? CatalogueFilters.get() : '/catalogue');" class="inline-flex items-center text-dark-400 hover:text-white mb-6 transition-colors">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
@@ -143,7 +143,7 @@
                     <div class="flex items-center gap-3">
                         <span class="text-dark-400 text-sm">Status</span>
                         <select x-model="status"
-                                @change="updateMedia()"
+                                @change="updateStatusProgress()"
                                 class="bg-dark-800 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-dark-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="to_consume">To Watch/Read</option>
                             <option value="in_progress">In Progress</option>
@@ -207,7 +207,7 @@
                                 </div>
                             </template>
                             <span class="text-white text-sm ml-1 min-w-[2.5rem]" x-text="displayRating"></span>
-                            <button @click="rating = null; updateMedia()" x-show="rating" class="text-dark-500 hover:text-dark-300 ml-1">
+                            <button @click="rating = null; updateRatingProgress()" x-show="rating" class="text-dark-500 hover:text-dark-300 ml-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
@@ -725,6 +725,8 @@ function mediaDetail() {
         currentEpisode: {{ media.current_episode if media.current_episode else 0 }},
         totalEpisodes: {{ media.number_of_episodes if media.number_of_episodes else 0 }},
         updating: false,
+        episodeUpdateTimeout: null,
+        pendingEpisodeUpdate: false,
         hoverRating: null,
         showEditModal: false,
         saving: false,
@@ -818,7 +820,35 @@ function mediaDetail() {
             const x = event.clientX - rect.left;
             const newRating = x < rect.width / 2 ? star - 0.5 : star;
             this.rating = this.rating === newRating ? null : newRating;
-            this.updateMedia();
+            this.updateRatingProgress();
+        },
+
+        async updateRatingProgress() {
+            // Use the fast /progress endpoint for rating updates
+            if (this.updating) return;
+            this.updating = true;
+            try {
+                const params = new URLSearchParams();
+                if (this.rating) params.append('rating', this.rating);
+                const res = await fetch(`/api/media/${this.mediaId}/progress?${params}`, {
+                    method: 'PATCH',
+                });
+            } catch (e) { console.error(e); }
+            finally { this.updating = false; }
+        },
+
+        async updateStatusProgress() {
+            // Use the fast /progress endpoint for status updates
+            if (this.updating) return;
+            this.updating = true;
+            try {
+                const params = new URLSearchParams();
+                params.append('status', this.status);
+                const res = await fetch(`/api/media/${this.mediaId}/progress?${params}`, {
+                    method: 'PATCH',
+                });
+            } catch (e) { console.error(e); }
+            finally { this.updating = false; }
         },
 
         getStarFill(star) {
@@ -855,16 +885,47 @@ function mediaDetail() {
             finally { this.updating = false; }
         },
 
-        async incrementEpisode() {
+        incrementEpisode() {
             if (this.currentEpisode >= this.totalEpisodes) return;
             this.currentEpisode++;
-            await this.updateMedia(true);
+            this.debouncedEpisodeUpdate();
         },
 
-        async decrementEpisode() {
+        decrementEpisode() {
             if (this.currentEpisode <= 0) return;
             this.currentEpisode--;
-            await this.updateMedia(true);
+            this.debouncedEpisodeUpdate();
+        },
+
+        debouncedEpisodeUpdate() {
+            // Cancel any pending update
+            if (this.episodeUpdateTimeout) {
+                clearTimeout(this.episodeUpdateTimeout);
+            }
+            this.pendingEpisodeUpdate = true;
+            // Wait 400ms after last click before sending API request
+            this.episodeUpdateTimeout = setTimeout(async () => {
+                this.pendingEpisodeUpdate = false;
+                await this.updateEpisodeProgress();
+            }, 400);
+        },
+
+        async updateEpisodeProgress() {
+            // Use the fast /progress endpoint for episode updates
+            if (this.updating) return;
+            this.updating = true;
+            try {
+                const params = new URLSearchParams();
+                params.append('current_episode', this.currentEpisode);
+                const res = await fetch(`/api/media/${this.mediaId}/progress?${params}`, {
+                    method: 'PATCH',
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status) this.status = data.status;
+                }
+            } catch (e) { console.error(e); }
+            finally { this.updating = false; }
         },
 
         async confirmDelete() {

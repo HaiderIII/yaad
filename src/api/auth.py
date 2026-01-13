@@ -108,6 +108,10 @@ def _set_session_and_redirect(
     if user.letterboxd_username:
         background_tasks.add_task(_run_letterboxd_sync, user.id)
 
+    # Trigger YouTube sync in background if connected
+    if user.youtube_refresh_token and user.youtube_playlist_id:
+        background_tasks.add_task(_run_youtube_sync, user.id)
+
     return RedirectResponse(url="/", status_code=302)
 
 
@@ -131,6 +135,17 @@ async def _run_letterboxd_sync(user_id: int) -> None:
         logger.info(f"Background Letterboxd sync for user {user_id}: {result}")
     except Exception as e:
         logger.error(f"Background Letterboxd sync failed for user {user_id}: {e}")
+
+
+async def _run_youtube_sync(user_id: int) -> None:
+    """Run YouTube playlist sync in background."""
+    from src.services.youtube import sync_youtube_for_user_id
+
+    try:
+        result = await sync_youtube_for_user_id(user_id)
+        logger.info(f"Background YouTube sync for user {user_id}: {result.message}")
+    except Exception as e:
+        logger.error(f"Background YouTube sync failed for user {user_id}: {e}")
 
 
 # ============== GitHub OAuth ==============
@@ -310,6 +325,142 @@ async def google_callback(
 
     await db.commit()
     return _set_session_and_redirect(request, user, background_tasks)
+
+
+# ============== YouTube OAuth (Watch Later) ==============
+
+YOUTUBE_SCOPES = "https://www.googleapis.com/auth/youtube.readonly"
+
+
+@router.get("/youtube/connect")
+async def youtube_connect(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+) -> RedirectResponse:
+    """Initiate YouTube OAuth to connect Watch Later."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google OAuth not configured")
+
+    state = secrets.token_urlsafe(32)
+    request.session["youtube_oauth_state"] = state
+
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": f"{settings.app_url}/api/auth/youtube/callback",
+        "response_type": "code",
+        "scope": YOUTUBE_SCOPES,
+        "state": state,
+        "access_type": "offline",
+        "prompt": "consent",  # Force consent to get refresh token
+    }
+    url = f"{GOOGLE_AUTHORIZE_URL}?{urlencode(params)}"
+    return RedirectResponse(url=url, status_code=302)
+
+
+@router.get("/youtube/callback")
+async def youtube_callback(
+    request: Request,
+    code: str,
+    state: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> RedirectResponse:
+    """Handle YouTube OAuth callback."""
+    # Verify state
+    stored_state = request.session.get("youtube_oauth_state")
+    if not stored_state or stored_state != state:
+        return RedirectResponse(url="/settings?error=invalid_state", status_code=302)
+
+    del request.session["youtube_oauth_state"]
+
+    # Exchange code for tokens
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        token_response = await client.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "code": code,
+                "redirect_uri": f"{settings.app_url}/api/auth/youtube/callback",
+                "grant_type": "authorization_code",
+            },
+        )
+
+        if token_response.status_code != 200:
+            logger.error(f"YouTube token exchange failed: {token_response.text}")
+            return RedirectResponse(url="/settings?error=token_failed", status_code=302)
+
+        token_data = token_response.json()
+        refresh_token = token_data.get("refresh_token")
+
+        if not refresh_token:
+            logger.error("No refresh token received from YouTube OAuth")
+            return RedirectResponse(url="/settings?error=no_refresh_token", status_code=302)
+
+    # Save refresh token to user
+    user.youtube_refresh_token = refresh_token
+    user.youtube_sync_enabled = True
+    await db.commit()
+
+    logger.info(f"YouTube connected for user {user.id}")
+    return RedirectResponse(url="/settings?success=youtube_connected", status_code=302)
+
+
+@router.post("/youtube/disconnect")
+async def youtube_disconnect(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Disconnect YouTube Watch Later integration."""
+    user.youtube_refresh_token = None
+    user.youtube_sync_enabled = False
+    await db.commit()
+
+    return {"status": "disconnected"}
+
+
+@router.post("/youtube/sync")
+async def youtube_sync_now(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Manually trigger YouTube Watch Later sync."""
+    from src.services.youtube import sync_youtube_for_user
+
+    if not user.youtube_refresh_token:
+        raise HTTPException(status_code=400, detail="YouTube not connected")
+
+    result = await sync_youtube_for_user(db, user)
+
+    return {
+        "added": result.added,
+        "skipped": result.skipped,
+        "errors": result.errors,
+        "message": result.message,
+    }
+
+
+@router.patch("/youtube/playlist")
+async def update_youtube_playlist(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """Update the YouTube playlist ID for sync."""
+    data = await request.json()
+    playlist_id = data.get("playlist_id", "").strip()
+
+    # Validate playlist ID format (optional - empty means use Watch Later)
+    if playlist_id and not playlist_id.startswith("PL"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid playlist ID. YouTube playlist IDs start with 'PL'",
+        )
+
+    user.youtube_playlist_id = playlist_id or None
+    await db.commit()
+
+    return {"status": "updated", "playlist_id": user.youtube_playlist_id}
 
 
 # ============== Common ==============

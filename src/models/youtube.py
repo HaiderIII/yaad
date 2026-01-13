@@ -25,6 +25,7 @@ class YouTubeMetadata(Base):
     video_id: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     channel_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     channel_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    playlist_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Archive info (Phase 7)
     archived_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)

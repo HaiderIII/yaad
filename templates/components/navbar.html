@@ -11,19 +11,23 @@
                 <div class="hidden md:flex items-center space-x-1 ml-8">
                     <a href="/"
                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'dashboard' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
-                        Dashboard
+                        {{ t('nav.dashboard') }}
                     </a>
                     <a href="/catalogue"
                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'catalogue' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
-                        Catalogue
+                        {{ t('nav.catalogue') }}
                     </a>
                     <a href="/add"
                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'add' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
-                        Add
+                        {{ t('nav.add') }}
                     </a>
                     <a href="/stats"
                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'stats' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
-                        Stats
+                        {{ t('nav.stats') }}
+                    </a>
+                    <a href="/recommendations"
+                       class="px-3 py-2 rounded-md text-sm font-medium transition-colors {% if current_page == 'recommendations' %}text-white border-b-2 border-primary-500{% else %}text-dark-300 hover:text-white hover:bg-dark-800 border-b-2 border-transparent{% endif %}">
+                        {{ t('nav.recommendations') }}
                     </a>
                 </div>
             </div>
@@ -72,10 +76,10 @@
                             {% endif %}
                         </div>
                         <a href="/settings" class="block px-4 py-2 text-sm text-dark-300 hover:bg-dark-700 hover:text-white">
-                            Settings
+                            {{ t('nav.settings') }}
                         </a>
                         <a href="/api/auth/logout" class="block px-4 py-2 text-sm text-red-400 hover:bg-dark-700 hover:text-red-300">
-                            Logout
+                            {{ t('nav.logout') }}
                         </a>
                     </div>
                 </div>
@@ -147,7 +151,7 @@
             <!-- Keyboard hint -->
             <div class="hidden md:flex items-center ml-4 text-dark-500 text-sm">
                 <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono mr-1">Esc</kbd>
-                to close
+                {{ t('nav.to_close') }}
             </div>
         </div>
 
@@ -160,7 +164,7 @@
                  x-transition:enter-end="opacity-100"
                  class="max-w-4xl mx-auto">
 
-                <p class="text-dark-400 text-sm mb-6">Quick actions</p>
+                <p class="text-dark-400 text-sm mb-6">{{ t('nav.quick_actions') }}</p>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <a href="/add" @click="close()" class="group flex items-center gap-4 p-4 bg-dark-800/50 hover:bg-dark-800 border border-dark-700 rounded-xl transition-all hover:scale-[1.02] hover:border-primary-500/50">
@@ -170,8 +174,8 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="font-medium text-white">Add media</p>
-                            <p class="text-sm text-dark-400">Film, series, book...</p>
+                            <p class="font-medium text-white">{{ t('nav.add_media') }}</p>
+                            <p class="text-sm text-dark-400">{{ t('dashboard.films') }}, {{ t('dashboard.series') }}, {{ t('dashboard.books') }}...</p>
                         </div>
                     </a>
 
@@ -182,8 +186,8 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="font-medium text-white">Catalogue</p>
-                            <p class="text-sm text-dark-400">Browse all media</p>
+                            <p class="font-medium text-white">{{ t('nav.catalogue') }}</p>
+                            <p class="text-sm text-dark-400">{{ t('nav.browse_media') }}</p>
                         </div>
                     </a>
 
@@ -194,8 +198,8 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="font-medium text-white">Statistics</p>
-                            <p class="text-sm text-dark-400">Your activity</p>
+                            <p class="font-medium text-white">{{ t('nav.stats') }}</p>
+                            <p class="text-sm text-dark-400">{{ t('nav.your_activity') }}</p>
                         </div>
                     </a>
                 </div>
@@ -205,7 +209,7 @@
                     <span class="flex items-center gap-2">
                         <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono" x-text="modifierKey"></kbd>
                         <kbd class="px-2 py-1 bg-dark-800 rounded text-xs font-mono">K</kbd>
-                        <span>to search</span>
+                        <span>{{ t('nav.to_search') }}</span>
                     </span>
                 </div>
             </div>
@@ -332,7 +336,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
-                    Add new media
+                    {{ t('catalogue.add_new_media') }}
                 </a>
             </div>
         </div>

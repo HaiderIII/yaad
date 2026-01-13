@@ -9,14 +9,17 @@ from src.db.crud.media import (
     get_incomplete_media,
     get_media,
     get_media_list,
+    get_media_list_cursor,
     get_or_create_author,
     get_or_create_genre,
     get_recent_media,
     get_unfinished_media,
+    get_unrated_count,
     get_user_stats,
     get_user_tags,
     invalidate_user_genre_cache,
     update_media,
+    update_media_quick,
 )
 
 __all__ = [
@@ -28,12 +31,15 @@ __all__ = [
     "get_incomplete_media",
     "get_media",
     "get_media_list",
+    "get_media_list_cursor",
     "get_or_create_author",
     "get_or_create_genre",
     "get_recent_media",
     "get_unfinished_media",
+    "get_unrated_count",
     "get_user_stats",
     "get_user_tags",
     "invalidate_user_genre_cache",
     "update_media",
+    "update_media_quick",
 ]

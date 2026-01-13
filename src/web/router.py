@@ -3,12 +3,14 @@
 import asyncio
 import logging
 import re
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import get_current_user, get_optional_user
@@ -27,9 +29,11 @@ from src.db.crud import (
     get_media_list,
     get_recent_media,
     get_unfinished_media,
+    get_unrated_count,
     get_user_stats,
 )
 from src.models.media import MediaStatus, MediaType
+from src.models.recommendation import Recommendation
 from src.models.user import User
 from src.services.metadata.justwatch import justwatch_service
 from src.services.metadata.tmdb import tmdb_service
@@ -90,19 +94,43 @@ async def dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HTMLResponse:
     """Render dashboard page."""
+    t0 = time.perf_counter()
+    user_platforms = set(str(p) for p in (user.streaming_platforms or []))
+
+    async def get_recommendations():
+        """Fetch top recommendations for homepage (limit 10, mixed types)."""
+        result = await db.execute(
+            select(Recommendation)
+            .where(Recommendation.user_id == user.id)
+            .where(Recommendation.is_dismissed == False)  # noqa: E712
+            .where(Recommendation.added_to_library == False)  # noqa: E712
+            .order_by(Recommendation.score.desc())
+            .limit(10)
+        )
+        return result.scalars().all()
+
     # Run all queries in parallel for better performance
-    stats, recent, unfinished = await asyncio.gather(
+    stats, recent, unfinished, recommendations = await asyncio.gather(
         get_user_stats(db, user.id),
         get_recent_media(db, user.id, limit=MAX_RECENT_ITEMS),
-        get_unfinished_media(db, user.id, limit=MAX_UNFINISHED_ITEMS),
+        get_unfinished_media(db, user.id, limit=MAX_UNFINISHED_ITEMS, user_platforms=user_platforms),
+        get_recommendations(),
     )
+    t1 = time.perf_counter()
+    logger.info(f"[PERF] dashboard DB queries took {t1 - t0:.3f}s")
 
     context = get_base_context(request, user)
     context["stats"] = stats
     context["recent_media"] = recent
     context["unfinished_media"] = unfinished
-    context["user_platforms"] = set(str(p) for p in (user.streaming_platforms or []))
-    return templates.TemplateResponse("pages/dashboard.html", context)
+    context["recommendations"] = recommendations
+    context["user_platforms"] = user_platforms
+
+    t2 = time.perf_counter()
+    response = templates.TemplateResponse("pages/dashboard.html", context)
+    t3 = time.perf_counter()
+    logger.info(f"[PERF] dashboard template render took {t3 - t2:.3f}s, total={t3 - t0:.3f}s")
+    return response
 
 
 @web_router.get("/catalogue", response_class=HTMLResponse)
@@ -118,6 +146,7 @@ async def catalogue_page(
     sort_order: Annotated[str, Query()] = "desc",
     incomplete: Annotated[str | None, Query()] = None,
     streamable: Annotated[str | None, Query()] = None,
+    unrated: Annotated[str | None, Query()] = None,
     partial: Annotated[str | None, Query()] = None,
     grid_only: Annotated[str | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
@@ -132,6 +161,7 @@ async def catalogue_page(
     media_status = MediaStatus(status) if status else None
     show_incomplete = incomplete == "1"
     streamable_only = streamable == "1"
+    unrated_only = unrated == "1"
     is_partial = partial == "1"
     is_grid_only = grid_only == "1"
     # Convert to set of strings for Jinja template comparisons
@@ -145,8 +175,8 @@ async def catalogue_page(
     if sort_order not in ["asc", "desc"]:
         sort_order = "desc"
 
-    # Parallel fetch: incomplete count + genres + media list
-    # This reduces 3 sequential DB round-trips to 1 parallel batch
+    # Parallel fetch: incomplete count + unrated count + genres + media list
+    # This reduces sequential DB round-trips to 1 parallel batch
     async def fetch_media():
         if show_incomplete:
             return await get_incomplete_media(
@@ -170,16 +200,22 @@ async def catalogue_page(
                 page_size=page_size,
                 streamable_only=streamable_only,
                 user_platforms=user_platforms if streamable_only else None,
+                unrated_only=unrated_only,
             )
 
-    incomplete_count, genres, (items, total) = await asyncio.gather(
+    t0 = time.perf_counter()
+    incomplete_count, unrated_count, genres, (items, total) = await asyncio.gather(
         get_incomplete_count(db, user.id),
+        get_unrated_count(db, user.id),
         get_genres_for_type(db, user.id, media_type),
         fetch_media(),
     )
+    t1 = time.perf_counter()
+    logger.info(f"[PERF] catalogue DB queries took {t1 - t0:.3f}s")
 
     pages = (total + page_size - 1) // page_size if total > 0 else 0
 
+    t2 = time.perf_counter()
     context = get_base_context(request, user)
     context["media_list"] = items
     context["total"] = total
@@ -193,20 +229,36 @@ async def catalogue_page(
     context["search"] = search or ""
     context["show_incomplete"] = show_incomplete
     context["streamable_only"] = streamable_only
+    context["unrated_only"] = unrated_only
     context["incomplete_count"] = incomplete_count
+    context["unrated_count"] = unrated_count
     context["genres"] = genres
     # Pass user's streaming platforms for availability indicator
     context["user_platforms"] = user_platforms_str
+    t3 = time.perf_counter()
+    logger.info(f"[PERF] catalogue context build took {t3 - t2:.3f}s")
 
     # Return the catalogue content partial for HTMX tab switching
     if is_partial:
-        return templates.TemplateResponse("partials/catalogue_content.html", context)
+        t4 = time.perf_counter()
+        response = templates.TemplateResponse("partials/catalogue_content.html", context)
+        t5 = time.perf_counter()
+        logger.info(f"[PERF] catalogue partial template render took {t5 - t4:.3f}s")
+        return response
 
     # Return only the grid partial for HTMX filter updates
     if is_grid_only:
-        return templates.TemplateResponse("partials/media_grid.html", context)
+        t4 = time.perf_counter()
+        response = templates.TemplateResponse("partials/media_grid.html", context)
+        t5 = time.perf_counter()
+        logger.info(f"[PERF] catalogue grid template render took {t5 - t4:.3f}s")
+        return response
 
-    return templates.TemplateResponse("pages/catalogue.html", context)
+    t4 = time.perf_counter()
+    response = templates.TemplateResponse("pages/catalogue.html", context)
+    t5 = time.perf_counter()
+    logger.info(f"[PERF] catalogue full template render took {t5 - t4:.3f}s, total={t5 - t0:.3f}s")
+    return response
 
 
 @web_router.get("/add", response_class=HTMLResponse)
@@ -227,8 +279,11 @@ async def media_detail_page(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> HTMLResponse | RedirectResponse:
     """Render media detail page."""
+    t0 = time.perf_counter()
 
     media = await get_media(db, media_id, user.id)
+    t1 = time.perf_counter()
+    logger.info(f"[PERF] media detail DB query took {t1 - t0:.3f}s")
     if not media:
         return RedirectResponse(url="/catalogue", status_code=302)
 
@@ -257,44 +312,68 @@ async def media_detail_page(
             # Always start with existing cache if available
             deep_links = media.streaming_links or {}
 
-            # Prepare async tasks - run API calls in parallel
+            # API timeout to prevent page hangs (5 seconds per service)
+            API_TIMEOUT = 5.0
+
+            # Prepare async tasks - run API calls in parallel with timeout protection
             async def fetch_justwatch():
                 if not should_refresh_links:
                     return None
                 try:
-                    return await justwatch_service.get_streaming_links(
-                        tmdb_id,
-                        media_type=media_type,
-                        country=user.country,
-                        title=media.title,
-                        year=media.year,
+                    return await asyncio.wait_for(
+                        justwatch_service.get_streaming_links(
+                            tmdb_id,
+                            media_type=media_type,
+                            country=user.country,
+                            title=media.title,
+                            year=media.year,
+                        ),
+                        timeout=API_TIMEOUT,
                     )
+                except asyncio.TimeoutError:
+                    logger.warning(f"JustWatch API timeout for {media.title}")
+                    return None
                 except Exception as e:
                     logger.warning(f"JustWatch API failed for {media.title}: {e}")
                     return None
 
             async def fetch_watch_providers():
                 try:
-                    return await tmdb_service.get_watch_providers(
-                        tmdb_id, media_type=media_type, country=user.country
+                    return await asyncio.wait_for(
+                        tmdb_service.get_watch_providers(
+                            tmdb_id, media_type=media_type, country=user.country
+                        ),
+                        timeout=API_TIMEOUT,
                     )
+                except asyncio.TimeoutError:
+                    logger.warning(f"TMDB watch providers timeout for {media.title}")
+                    return None
                 except Exception as e:
                     logger.warning(f"TMDB watch providers failed for {media.title}: {e}")
                     return None
 
             async def fetch_all_providers():
                 try:
-                    return await tmdb_service.get_available_providers(user.country)
+                    return await asyncio.wait_for(
+                        tmdb_service.get_available_providers(user.country),
+                        timeout=API_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"TMDB available providers timeout for {user.country}")
+                    return []
                 except Exception as e:
                     logger.warning(f"TMDB available providers failed for {user.country}: {e}")
                     return []
 
             # Run all API calls in parallel
+            t_api_start = time.perf_counter()
             jw_result, watch_providers, all_providers = await asyncio.gather(
                 fetch_justwatch(),
                 fetch_watch_providers(),
                 fetch_all_providers(),
             )
+            t_api_end = time.perf_counter()
+            logger.info(f"[PERF] media detail API calls took {t_api_end - t_api_start:.3f}s")
 
             # Update cache if JustWatch returned new data
             if jw_result and jw_result.get("links"):
@@ -409,7 +488,11 @@ async def media_detail_page(
     else:
         context["film_slug"] = ""
 
-    return templates.TemplateResponse("pages/detail/media.html", context)
+    t_render_start = time.perf_counter()
+    response = templates.TemplateResponse("pages/detail/media.html", context)
+    t_render_end = time.perf_counter()
+    logger.info(f"[PERF] media detail template render took {t_render_end - t_render_start:.3f}s, total={t_render_end - t0:.3f}s")
+    return response
 
 
 @web_router.get("/stats", response_class=HTMLResponse)
@@ -426,8 +509,103 @@ async def stats_page(
     stats = await get_stats(user=user, db=db)
 
     context = get_base_context(request, user)
-    context["stats"] = stats.model_dump()
+    context["stats"] = stats.model_dump(mode="json")
     return templates.TemplateResponse("pages/stats.html", context)
+
+
+@web_router.get("/recommendations", response_class=HTMLResponse)
+async def recommendations_page(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> HTMLResponse:
+    """Render recommendations page with genre-based sliders."""
+    t0 = time.perf_counter()
+    from sqlalchemy import and_, select
+
+    from src.models.recommendation import Recommendation
+
+    # Get recommendations for this user
+    result = await db.execute(
+        select(Recommendation)
+        .where(
+            and_(
+                Recommendation.user_id == user.id,
+                Recommendation.is_dismissed == False,
+                Recommendation.added_to_library == False,
+            )
+        )
+        .order_by(Recommendation.score.desc())
+    )
+    recommendations = result.scalars().all()
+    t1 = time.perf_counter()
+    logger.info(f"[PERF] recommendations DB query took {t1 - t0:.3f}s")
+
+    # Group by media type, then by genre within each type
+    type_mapping = {
+        MediaType.FILM: "films",
+        MediaType.SERIES: "series",
+        MediaType.BOOK: "books",
+        MediaType.YOUTUBE: "youtube",
+    }
+
+    # Structure: {type: {genre: [recs]}}
+    grouped_by_genre = {
+        "films": {},
+        "series": {},
+        "books": {},
+        "youtube": {},
+    }
+
+    # Track genre scores for sorting (avg score of recommendations in each genre)
+    genre_scores: dict[str, dict[str, list[float]]] = {
+        "films": {}, "series": {}, "books": {}, "youtube": {}
+    }
+
+    for rec in recommendations:
+        type_key = type_mapping.get(rec.media_type)
+        if not type_key:
+            continue
+
+        genre = rec.genre_name or "Découvertes"
+
+        if genre not in grouped_by_genre[type_key]:
+            grouped_by_genre[type_key][genre] = []
+            genre_scores[type_key][genre] = []
+
+        # Limit per genre
+        if len(grouped_by_genre[type_key][genre]) < 10:
+            grouped_by_genre[type_key][genre].append(rec)
+            genre_scores[type_key][genre].append(rec.score)
+
+    # Sort genres by average score (highest first) to show user's preferred genres first
+    for type_key in grouped_by_genre:
+        if grouped_by_genre[type_key]:
+            sorted_genres = sorted(
+                grouped_by_genre[type_key].items(),
+                key=lambda x: sum(genre_scores[type_key].get(x[0], [0])) / max(len(genre_scores[type_key].get(x[0], [1])), 1),
+                reverse=True
+            )
+            grouped_by_genre[type_key] = dict(sorted_genres)
+
+    # Category colors and icons for consistent styling
+    category_styles = {
+        "films": {"color": "blue", "icon": "film"},
+        "series": {"color": "cyan", "icon": "tv"},
+        "books": {"color": "emerald", "icon": "book"},
+        "youtube": {"color": "red", "icon": "video"},
+    }
+
+    context = get_base_context(request, user)
+    context["recommendations_by_genre"] = grouped_by_genre
+    context["category_styles"] = category_styles
+    context["user_platforms"] = set(str(p) for p in (user.streaming_platforms or []))
+
+    t2 = time.perf_counter()
+    response = templates.TemplateResponse("pages/recommendations.html", context)
+    t3 = time.perf_counter()
+    logger.info(f"[PERF] recommendations template render took {t3 - t2:.3f}s, total={t3 - t0:.3f}s")
+    return response
 
 
 @web_router.get("/settings", response_class=HTMLResponse)
@@ -444,3 +622,9 @@ async def settings_page(
     context["user_providers"] = user.streaming_platforms or []
     context["user_country"] = user.country
     return templates.TemplateResponse("pages/settings/index.html", context)
+
+
+@web_router.get("/offline", response_class=HTMLResponse)
+async def offline_page(request: Request) -> HTMLResponse:
+    """Render offline fallback page for PWA."""
+    return templates.TemplateResponse("offline.html", {"request": request})

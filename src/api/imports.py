@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -16,6 +17,7 @@ from src.db import get_db
 from src.models.user import User
 from src.services.imports.letterboxd import LetterboxdEntry, letterboxd_importer
 from src.services.imports.letterboxd_sync import letterboxd_sync
+from src.services.imports.notion import notion_importer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -75,6 +77,7 @@ async def import_letterboxd(
         entries=entries,
         skip_existing=skip_existing,
         fetch_metadata=fetch_metadata,
+        force_update=False,  # CSV import doesn't force update
     )
 
     # Invalidate search cache
@@ -128,6 +131,7 @@ async def sync_letterboxd(
     full_import: bool = False,
     skip_existing: bool = True,
     fetch_metadata: bool = True,
+    force_update: bool = False,
 ) -> LetterboxdSyncResponse:
     """Sync films from Letterboxd.
 
@@ -135,6 +139,7 @@ async def sync_letterboxd(
         full_import: If True, scrape all films. If False, use RSS (last ~50).
         skip_existing: Skip films already in library.
         fetch_metadata: Fetch full metadata from TMDB.
+        force_update: Force update ratings even if local rating exists.
     """
     # Capture user data early to avoid session issues after rollbacks
     user_id = user.id
@@ -185,6 +190,7 @@ async def sync_letterboxd(
         entries=entries,
         skip_existing=skip_existing,
         fetch_metadata=fetch_metadata,
+        force_update=force_update,
     )
 
     # Invalidate search cache
@@ -207,8 +213,12 @@ async def sync_letterboxd_stream(
     full_import: bool = False,
     skip_existing: bool = True,
     fetch_metadata: bool = True,
+    force_update: bool = False,
 ):
     """Sync films from Letterboxd with progress streaming via SSE.
+
+    Args:
+        force_update: Force update ratings even if local rating exists.
 
     Returns Server-Sent Events with progress updates.
     """
@@ -275,9 +285,10 @@ async def sync_letterboxd_stream(
                         entry=entry,
                         skip_existing=skip_existing,
                         fetch_metadata=fetch_metadata,
+                        force_update=force_update,
                     )
 
-                    if status == "imported":
+                    if status in ("imported", "updated"):
                         imported += 1
                     elif status == "skipped":
                         skipped += 1
@@ -475,9 +486,10 @@ async def sync_letterboxd_watchlist_stream(
                         entry=entry,
                         skip_existing=skip_existing,
                         fetch_metadata=fetch_metadata,
+                        force_update=False,  # Watchlist items don't have ratings
                     )
 
-                    if status == "imported":
+                    if status in ("imported", "updated"):
                         imported += 1
                     elif status == "skipped":
                         skipped += 1
@@ -619,4 +631,239 @@ async def get_letterboxd_following(
     return FollowingResponse(
         usernames=following,
         count=len(following),
+    )
+
+
+# ==================== NOTION IMPORT ====================
+
+
+@router.post("/notion", response_model=ImportResponse)
+async def import_notion(
+    file: Annotated[UploadFile, File(description="Notion CSV export")],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    skip_existing: bool = True,
+    fetch_metadata: bool = True,
+) -> ImportResponse:
+    """Import media from Notion CSV export.
+
+    Supports various media types:
+    - Film → Film
+    - Livre/Book → Book
+    - TV Series/Série → Series
+    - Discussion → Podcast
+    - Reportage → YouTube video
+
+    Args:
+        file: CSV file upload
+        skip_existing: Skip media already in library (default: True)
+        fetch_metadata: Fetch full metadata from external APIs (default: True)
+    """
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+
+    # Read file content
+    content = await file.read()
+    try:
+        csv_content = content.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            csv_content = content.decode("latin-1")
+        except UnicodeDecodeError:
+            csv_content = content.decode("utf-8", errors="ignore")
+
+    # Parse CSV
+    entries = notion_importer.parse_csv(csv_content)
+
+    if not entries:
+        raise HTTPException(status_code=400, detail="No valid entries found in CSV")
+
+    # Import entries one by one
+    imported = 0
+    skipped = 0
+    failed = 0
+    errors: list[str] = []
+
+    for entry in entries:
+        status, error_msg = await notion_importer.import_single_entry(
+            db=db,
+            user_id=user.id,
+            entry=entry,
+            skip_existing=skip_existing,
+            fetch_metadata=fetch_metadata,
+        )
+
+        if status == "imported":
+            imported += 1
+        elif status == "skipped":
+            skipped += 1
+        else:
+            failed += 1
+            if error_msg:
+                errors.append(error_msg)
+
+    # Final commit
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
+    # Invalidate search cache
+    if imported > 0:
+        invalidate_user_search_cache(user.id)
+
+    return ImportResponse(
+        imported=imported,
+        skipped=skipped,
+        failed=failed,
+        errors=errors[:10] if errors else None,
+    )
+
+
+@router.get("/notion/import-stream")
+async def import_notion_stream(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+):
+    """Placeholder for SSE stream - actual upload happens via POST first."""
+    raise HTTPException(
+        status_code=400,
+        detail="Use POST /api/import/notion-stream with file upload",
+    )
+
+
+@router.post("/notion-stream")
+async def import_notion_stream_post(
+    request: Request,
+    file: Annotated[UploadFile, File(description="Notion CSV export")],
+    user: Annotated[User, Depends(get_current_user)],
+    skip_existing: bool = True,
+    fetch_metadata: bool = True,
+):
+    """Import media from Notion CSV with progress streaming via SSE.
+
+    Returns Server-Sent Events with progress updates.
+    """
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+
+    # Read file content
+    content = await file.read()
+    try:
+        csv_content = content.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            csv_content = content.decode("latin-1")
+        except UnicodeDecodeError:
+            csv_content = content.decode("utf-8", errors="ignore")
+
+    # Parse CSV
+    entries = notion_importer.parse_csv(csv_content)
+
+    if not entries:
+        raise HTTPException(status_code=400, detail="No valid entries found in CSV")
+
+    # Capture user data
+    user_id = user.id
+
+    async def generate():
+        """Generate SSE events for progress."""
+        from src.db import async_session_maker
+
+        try:
+            total = len(entries)
+            yield f"data: {json.dumps({'phase': 'parsing', 'message': f'Found {total} entries in CSV. Starting import...', 'total': total, 'current': 0})}\n\n"
+
+            imported = 0
+            skipped = 0
+            failed = 0
+            errors: list[str] = []
+
+            async with async_session_maker() as db:
+                for i, entry in enumerate(entries):
+                    # Check if client disconnected
+                    if await request.is_disconnected():
+                        return
+
+                    status, error_msg = await notion_importer.import_single_entry(
+                        db=db,
+                        user_id=user_id,
+                        entry=entry,
+                        skip_existing=skip_existing,
+                        fetch_metadata=fetch_metadata,
+                    )
+
+                    if status == "imported":
+                        imported += 1
+                    elif status == "skipped":
+                        skipped += 1
+                        # Collect skip reasons for debugging
+                        if error_msg:
+                            errors.append(error_msg)
+                    else:
+                        failed += 1
+                        if error_msg:
+                            errors.append(error_msg)
+
+                    # Send progress
+                    progress_data = {
+                        "phase": "importing",
+                        "current": i + 1,
+                        "total": total,
+                        "imported": imported,
+                        "skipped": skipped,
+                        "failed": failed,
+                        "current_item": entry.name,
+                        "current_type": entry.type or "unknown",
+                    }
+                    yield f"data: {json.dumps(progress_data)}\n\n"
+
+                    # Small delay to prevent overwhelming
+                    await asyncio.sleep(0.01)
+
+                # Final commit
+                try:
+                    await db.commit()
+                except Exception:
+                    await db.rollback()
+
+            # Invalidate search cache
+            if imported > 0:
+                invalidate_user_search_cache(user_id)
+
+            # Collect unique skip reasons for summary
+            skip_reasons = {}
+            for err in errors:
+                if "unsupported type" in err.lower():
+                    # Extract type from error message
+                    match = re.search(r"unsupported type '([^']*)'", err.lower())
+                    if match:
+                        t = match.group(1)
+                        skip_reasons[t] = skip_reasons.get(t, 0) + 1
+
+            # Final result
+            result_data = {
+                'phase': 'done',
+                'imported': imported,
+                'skipped': skipped,
+                'failed': failed,
+                'total': total,
+                'errors': errors[:20],
+            }
+            if skip_reasons:
+                result_data['skip_summary'] = skip_reasons
+            yield f"data: {json.dumps(result_data)}\n\n"
+
+        except Exception as e:
+            logger.exception("Error during Notion import stream")
+            yield f"data: {json.dumps({'phase': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

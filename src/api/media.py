@@ -1,8 +1,9 @@
 """Media API endpoints."""
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.search import invalidate_user_search_cache
@@ -15,11 +16,14 @@ from src.db.crud import (
     get_incomplete_media,
     get_media,
     get_media_list,
+    get_media_list_cursor,
     get_user_tags,
     update_media,
+    update_media_quick,
 )
 from src.models.media import MediaStatus, MediaType
 from src.models.schemas import (
+    CursorPaginatedMedia,
     MediaCreate,
     MediaListRead,
     MediaRead,
@@ -34,6 +38,7 @@ from src.services.metadata.podcast import podcast_service
 from src.services.metadata.youtube import youtube_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=MediaRead, status_code=201)
@@ -89,6 +94,47 @@ async def list_media(
         page=page,
         page_size=page_size,
         pages=pages,
+    )
+
+
+@router.get("/cursor", response_model=CursorPaginatedMedia)
+async def list_media_cursor(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    type: Annotated[str | None, Query()] = None,
+    status: Annotated[str | None, Query()] = None,
+    search: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[str, Query()] = "created_at",
+    sort_order: Annotated[str, Query()] = "desc",
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    cursor: Annotated[str | None, Query()] = None,
+) -> CursorPaginatedMedia:
+    """List media with cursor-based pagination.
+
+    Cursor pagination is more efficient for large datasets and provides
+    stable results when data is being modified. Use the `cursor` parameter
+    with the `next_cursor` value from the previous response to get the next page.
+    """
+    media_type = MediaType(type) if type else None
+    media_status = MediaStatus(status) if status else None
+
+    items, next_cursor, has_more = await get_media_list_cursor(
+        db=db,
+        user_id=user.id,
+        media_type=media_type,
+        status=media_status,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        cursor=cursor,
+    )
+
+    return CursorPaginatedMedia(
+        items=[MediaRead.model_validate(item) for item in items],
+        next_cursor=next_cursor,
+        has_more=has_more,
+        limit=limit,
     )
 
 
@@ -250,15 +296,47 @@ async def get_media_endpoint(
     return MediaRead.model_validate(media)
 
 
+@router.patch("/{media_id}/progress")
+async def update_media_progress(
+    media_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    status: Annotated[str | None, Query()] = None,
+    rating: Annotated[float | None, Query()] = None,
+    current_episode: Annotated[int | None, Query()] = None,
+) -> dict:
+    """Fast endpoint for updating progress (status, rating, episode).
+
+    Optimized for rapid updates - no full re-fetch of media relationships.
+    """
+    result = await update_media_quick(
+        db=db,
+        media_id=media_id,
+        user_id=user.id,
+        status=status,
+        rating=rating,
+        current_episode=current_episode,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    return result
+
+
 @router.patch("/{media_id}", response_model=MediaRead)
 async def update_media_endpoint(
     media_id: int,
     data: MediaUpdate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     authors: Annotated[list[str] | None, Query()] = None,
 ) -> MediaRead:
     """Update a media entry."""
+    # Get current status before update to detect status change
+    old_media = await get_media(db=db, media_id=media_id, user_id=user.id)
+    old_status = old_media.status if old_media else None
+
     media = await update_media(
         db=db,
         media_id=media_id,
@@ -268,9 +346,34 @@ async def update_media_endpoint(
     )
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
+
+    # If YouTube video marked as consumed, remove from playlist in background
+    if (
+        media.type == MediaType.YOUTUBE
+        and data.status == MediaStatus.CONSUMED
+        and old_status != MediaStatus.CONSUMED
+    ):
+        background_tasks.add_task(_remove_youtube_from_playlist, media.id, user.id)
+
     # Invalidate search cache for this user
     invalidate_user_search_cache(user.id)
     return MediaRead.model_validate(media)
+
+
+async def _remove_youtube_from_playlist(media_id: int, user_id: int) -> None:
+    """Background task to remove YouTube video from playlist."""
+    from src.db import async_session_maker
+    from src.services.youtube import remove_video_from_playlist
+
+    async with async_session_maker() as db:
+        media = await get_media(db=db, media_id=media_id, user_id=user_id)
+        user = await db.get(User, user_id)
+        if media and user:
+            try:
+                await remove_video_from_playlist(db, media, user)
+                await db.commit()
+            except Exception as e:
+                logger.error(f"Failed to remove YouTube video from playlist: {e}")
 
 
 @router.delete("/{media_id}", status_code=204)

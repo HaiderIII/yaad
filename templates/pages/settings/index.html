@@ -313,6 +313,13 @@
                             </span>
                         </button>
                     </div>
+                    <!-- Force Update Option -->
+                    <div class="mt-3 pt-3 border-t border-dark-700">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" x-model="forceUpdate" class="w-4 h-4 rounded bg-dark-700 border-dark-600 text-primary-600 focus:ring-primary-500 focus:ring-offset-dark-800">
+                            <span class="text-dark-300 text-sm">Overwrite existing ratings with Letterboxd ratings</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Watchlist Import -->
@@ -605,6 +612,261 @@
         </template>
     </div>
 
+    <!-- YouTube Watch Later -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6" x-data="youtubeSync()">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-[#ff0000] rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-white">YouTube Watch Later</h2>
+                <p class="text-dark-400 text-sm">Import videos from your Watch Later playlist</p>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="border border-dark-700 rounded-lg p-4 mb-4">
+            <template x-if="!connected">
+                <div>
+                    <p class="text-dark-400 text-sm mb-4">Connect your YouTube account to automatically import videos from your Watch Later playlist.</p>
+                    <a href="/api/auth/youtube/connect"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-[#ff0000] hover:bg-[#cc0000] text-white font-medium rounded-lg transition-colors">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Connect YouTube Account
+                    </a>
+                </div>
+            </template>
+
+            <template x-if="connected">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span class="text-white">Connected to YouTube</span>
+                    </div>
+                    <button @click="disconnect()" class="text-dark-400 hover:text-red-400 text-sm transition-colors">
+                        Disconnect
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <!-- Sync Options (only when connected) -->
+        <template x-if="connected">
+            <div class="space-y-4">
+                <!-- Playlist Configuration -->
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <h3 class="text-white font-medium mb-2">Playlist ID</h3>
+                    <p class="text-dark-400 text-sm mb-3">
+                        The default Watch Later playlist is not accessible via API.
+                        Create a custom playlist on YouTube and enter its ID here.
+                    </p>
+                    <div class="flex gap-2">
+                        <input type="text"
+                               x-model="playlistId"
+                               placeholder="PLxxxxxxxxxxxxxxxx"
+                               class="flex-1 px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <button @click="savePlaylistId()"
+                                :disabled="savingPlaylist"
+                                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!savingPlaylist">Save</span>
+                            <span x-show="savingPlaylist" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                    <p x-show="playlistSaved" x-transition class="mt-2 text-green-400 text-sm">Playlist ID saved!</p>
+                    <p x-show="playlistError" x-transition class="mt-2 text-red-400 text-sm" x-text="playlistError"></p>
+                    <p class="text-dark-500 text-xs mt-2">
+                        <a href="https://www.youtube.com/playlist?list=WL" target="_blank" class="text-primary-400 hover:underline">Open Watch Later</a>,
+                        click "Save playlist to library", then copy the playlist ID from the URL (starts with PL).
+                    </p>
+                </div>
+
+                <div class="border border-dark-700 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="text-white font-medium">Sync Playlist</h3>
+                            <p class="text-dark-400 text-sm mt-1">Import videos from your configured playlist. Auto-syncs every 6 hours.</p>
+                        </div>
+                        <button @click="syncNow()"
+                                :disabled="syncing || !playlistId"
+                                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            <span x-show="!syncing">Sync Now</span>
+                            <span x-show="syncing" class="flex items-center gap-2">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                                </svg>
+                                Syncing...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Message -->
+                <div x-show="syncResult" x-transition>
+                    <template x-if="syncResult && syncResult.success">
+                        <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                            <p class="text-green-400 text-sm">
+                                <span class="font-medium" x-text="syncResult.added"></span> videos added,
+                                <span x-text="syncResult.skipped"></span> skipped
+                                <template x-if="syncResult.errors > 0">
+                                    <span>, <span class="text-yellow-400" x-text="syncResult.errors"></span> errors</span>
+                                </template>
+                            </p>
+                        </div>
+                    </template>
+                    <template x-if="syncResult && !syncResult.success">
+                        <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                            <p class="text-red-400 text-sm" x-text="syncResult.error"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Notion Import -->
+    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6" x-data="notionImport()">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-black" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.98-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.905c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.886l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.449.327s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.886.747-.933zM2.73 1.968l13.075-.933c1.074-.093 1.355-.047 2.007.42l2.76 1.922c.42.28.56.373.56.7v14.663c0 .84-.327 1.353-1.447 1.446l-15.083.887c-.84.047-1.26-.093-1.72-.7l-2.43-3.173c-.327-.42-.467-.746-.467-1.166V3.321c0-.56.28-1.073.746-1.353z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-white">Notion Import</h2>
+                <p class="text-dark-400 text-sm">Import your media library from Notion CSV export</p>
+            </div>
+        </div>
+
+        <!-- Type Mapping Info -->
+        <div class="border border-dark-700 rounded-lg p-4 mb-4 text-sm">
+            <p class="text-dark-300 mb-2">Supported types from Notion:</p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-dark-400">
+                <span><span class="text-white">Film</span> → Film</span>
+                <span><span class="text-white">Livre/Book</span> → Book</span>
+                <span><span class="text-white">TV Series</span> → Series</span>
+                <span><span class="text-white">Discussion</span> → Podcast</span>
+                <span><span class="text-white">Reportage</span> → Video</span>
+            </div>
+        </div>
+
+        <!-- Upload Area -->
+        <div class="border border-dark-700 rounded-lg p-4">
+            <label
+                class="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors"
+                :class="isDragging ? 'border-primary-500 bg-primary-500/10' : 'border-dark-600 hover:border-dark-500 bg-dark-800/50'"
+                @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false"
+                @drop.prevent="handleDrop($event)">
+                <input type="file" accept=".csv" class="hidden" @change="handleFileSelect($event)" x-ref="fileInput">
+                <template x-if="!importing && !selectedFile">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="text-dark-400 text-sm">Drop Notion CSV file here or click to browse</p>
+                    </div>
+                </template>
+                <template x-if="selectedFile && !importing">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-white text-sm" x-text="selectedFile.name"></p>
+                    </div>
+                </template>
+                <template x-if="importing">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-primary-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
+                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
+                        </svg>
+                        <span class="text-dark-400 text-sm">Importing...</span>
+                    </div>
+                </template>
+            </label>
+
+            <!-- Import Button -->
+            <div class="mt-4 flex items-center gap-3" x-show="selectedFile && !importing">
+                <button @click="startImport()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium">
+                    Start Import
+                </button>
+                <button @click="clearFile()" class="text-dark-400 hover:text-dark-300 text-sm">Cancel</button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div x-show="importing && progress.total > 0" x-transition class="mt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-white text-sm font-medium">Importing media...</span>
+                    <span class="text-dark-400 text-sm" x-text="`${progress.current}/${progress.total}`"></span>
+                </div>
+                <div class="w-full bg-dark-700 rounded-full h-2 mb-2">
+                    <div class="bg-primary-500 h-2 rounded-full transition-all duration-150"
+                         :style="`width: ${(progress.current / progress.total) * 100}%`"></div>
+                </div>
+                <p class="text-dark-400 text-xs truncate">
+                    <span x-text="progress.current_type" class="text-dark-500"></span>
+                    <span x-text="progress.current_item"></span>
+                </p>
+                <div class="flex gap-4 mt-2 text-xs">
+                    <span class="text-green-400"><span x-text="progress.imported"></span> imported</span>
+                    <span class="text-yellow-400"><span x-text="progress.skipped"></span> skipped</span>
+                    <span class="text-red-400"><span x-text="progress.failed"></span> failed</span>
+                </div>
+            </div>
+
+            <!-- Result Message -->
+            <div x-show="result" x-transition class="mt-4">
+                <template x-if="result && result.success">
+                    <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p class="text-green-400 text-sm">
+                            Import complete!
+                            <span class="font-medium" x-text="result.imported"></span> imported,
+                            <span x-text="result.skipped"></span> skipped,
+                            <span x-text="result.failed"></span> failed.
+                        </p>
+                    </div>
+                </template>
+                <template x-if="result && !result.success">
+                    <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                        <p class="text-red-400 text-sm" x-text="result.error"></p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Failed imports details -->
+            <div x-show="result && result.errors && result.errors.length > 0" x-transition class="mt-3 border border-red-500/20 rounded-lg overflow-hidden">
+                <button @click="showErrors = !showErrors" class="w-full p-3 bg-red-500/10 flex items-center justify-between text-left">
+                    <span class="text-red-400 text-sm font-medium">
+                        <span x-text="result?.errors?.length || 0"></span> item(s) failed to import
+                    </span>
+                    <svg class="w-4 h-4 text-red-400 transition-transform" :class="showErrors && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="showErrors" x-transition.origin.top class="p-3 bg-dark-800/50 max-h-48 overflow-y-auto">
+                    <ul class="space-y-1 text-xs text-dark-400">
+                        <template x-for="error in (result?.errors || [])" :key="error">
+                            <li class="flex items-start gap-2">
+                                <span class="text-red-400 mt-0.5">-</span>
+                                <span x-text="error"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Integrations (Phase 4+) -->
     <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-6">
         <h2 class="text-lg font-semibold text-white mb-4">Integrations</h2>
@@ -650,6 +912,7 @@ function letterboxdSync() {
         syncType: null,
         syncResult: null,
         showErrors: false,
+        forceUpdate: false,
         progress: {
             phase: null,
             message: '',
@@ -816,7 +1079,8 @@ function letterboxdSync() {
                 const params = new URLSearchParams({
                     full_import: fullImport,
                     skip_existing: true,
-                    fetch_metadata: true
+                    fetch_metadata: true,
+                    force_update: this.forceUpdate
                 });
 
                 // Use SSE for progress streaming
@@ -1242,6 +1506,234 @@ function koboSync() {
                 };
             } finally {
                 this.syncing = false;
+            }
+        }
+    }
+}
+
+function youtubeSync() {
+    return {
+        connected: {{ 'true' if user.youtube_refresh_token else 'false' }},
+        playlistId: '{{ user.youtube_playlist_id or "" }}',
+        savingPlaylist: false,
+        playlistSaved: false,
+        playlistError: null,
+        syncing: false,
+        syncResult: null,
+
+        async savePlaylistId() {
+            this.savingPlaylist = true;
+            this.playlistSaved = false;
+            this.playlistError = null;
+
+            try {
+                const response = await fetch('/api/auth/youtube/playlist', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playlist_id: this.playlistId })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.playlistSaved = true;
+                    setTimeout(() => { this.playlistSaved = false; }, 3000);
+                } else {
+                    this.playlistError = data.detail || 'Failed to save playlist ID';
+                }
+            } catch (e) {
+                this.playlistError = 'Network error. Please try again.';
+            } finally {
+                this.savingPlaylist = false;
+            }
+        },
+
+        async disconnect() {
+            try {
+                const response = await fetch('/api/auth/youtube/disconnect', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    this.connected = false;
+                    this.syncResult = null;
+                    this.playlistId = '';
+                }
+            } catch (e) {
+                console.error('Failed to disconnect:', e);
+            }
+        },
+
+        async syncNow() {
+            this.syncing = true;
+            this.syncResult = null;
+
+            try {
+                const response = await fetch('/api/auth/youtube/sync', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.syncResult = {
+                        success: true,
+                        added: data.added,
+                        skipped: data.skipped,
+                        errors: data.errors
+                    };
+                } else {
+                    this.syncResult = {
+                        success: false,
+                        error: data.detail || data.message || 'Sync failed'
+                    };
+                }
+            } catch (e) {
+                this.syncResult = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+            } finally {
+                this.syncing = false;
+            }
+        }
+    }
+}
+
+function notionImport() {
+    return {
+        isDragging: false,
+        selectedFile: null,
+        importing: false,
+        result: null,
+        showErrors: false,
+        progress: {
+            current: 0,
+            total: 0,
+            imported: 0,
+            skipped: 0,
+            failed: 0,
+            current_item: '',
+            current_type: ''
+        },
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                this.selectedFile = file;
+                this.result = null;
+            }
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const file = event.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                this.selectedFile = file;
+                this.result = null;
+            }
+        },
+
+        clearFile() {
+            this.selectedFile = null;
+            this.result = null;
+            this.$refs.fileInput.value = '';
+        },
+
+        async startImport() {
+            if (!this.selectedFile) return;
+
+            this.importing = true;
+            this.result = null;
+            this.progress = {
+                current: 0,
+                total: 0,
+                imported: 0,
+                skipped: 0,
+                failed: 0,
+                current_item: '',
+                current_type: ''
+            };
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            try {
+                // Use fetch with POST for streaming (SSE doesn't support POST body easily)
+                // So we'll use the streaming endpoint
+                const response = await fetch('/api/import/notion-stream?skip_existing=true&fetch_metadata=true', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    this.result = {
+                        success: false,
+                        error: error.detail || 'Import failed'
+                    };
+                    this.importing = false;
+                    return;
+                }
+
+                // Read SSE stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.phase === 'parsing') {
+                                    this.progress.total = data.total || 0;
+                                    this.progress.message = data.message || '';
+                                } else if (data.phase === 'importing') {
+                                    this.progress.current = data.current || 0;
+                                    this.progress.total = data.total || 0;
+                                    this.progress.imported = data.imported || 0;
+                                    this.progress.skipped = data.skipped || 0;
+                                    this.progress.failed = data.failed || 0;
+                                    this.progress.current_item = data.current_item || '';
+                                    this.progress.current_type = data.current_type ? `[${data.current_type}]` : '';
+                                } else if (data.phase === 'done') {
+                                    this.result = {
+                                        success: true,
+                                        imported: data.imported,
+                                        skipped: data.skipped,
+                                        failed: data.failed,
+                                        errors: data.errors || []
+                                    };
+                                    this.showErrors = false;
+                                    this.importing = false;
+                                    this.selectedFile = null;
+                                    this.$refs.fileInput.value = '';
+                                } else if (data.phase === 'error') {
+                                    this.result = {
+                                        success: false,
+                                        error: data.message || 'Import failed'
+                                    };
+                                    this.importing = false;
+                                }
+                            } catch (e) {
+                                // Ignore JSON parse errors for incomplete chunks
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                this.result = {
+                    success: false,
+                    error: 'Network error. Please try again.'
+                };
+                this.importing = false;
             }
         }
     }

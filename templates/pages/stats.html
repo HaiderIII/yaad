@@ -3,406 +3,858 @@
 {% block title %}Statistics - Yaad{% endblock %}
 
 {% block head %}
-<!-- Chart.js for visualizations -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    window.statsData = {{ stats | tojson }};
+</script>
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+    function statsPage() {
+        return {
+            data: window.statsData,
+            charts: {},
+
+            init() {
+                this.$nextTick(() => this.renderCharts());
+            },
+
+            formatNumber(num) {
+                if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+                if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+                return num.toString();
+            },
+
+            renderCharts() {
+                if (!this.data || typeof Chart === 'undefined') {
+                    setTimeout(() => this.renderCharts(), 100);
+                    return;
+                }
+
+                // Register custom plugin for center text in doughnut
+                const centerTextPlugin = {
+                    id: 'centerText',
+                    afterDraw(chart) {
+                        if (chart.config.type !== 'doughnut' || !chart.config.options.plugins.centerText) return;
+                        const { ctx, chartArea: { width, height, top } } = chart;
+                        const text = chart.config.options.plugins.centerText;
+                        ctx.save();
+                        ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+                        ctx.fillStyle = '#f1f5f9';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(text.value, width / 2, top + height / 2 - 8);
+                        ctx.font = '12px Inter, system-ui, sans-serif';
+                        ctx.fillStyle = '#64748b';
+                        ctx.fillText(text.label, width / 2, top + height / 2 + 16);
+                        ctx.restore();
+                    }
+                };
+                Chart.register(centerTextPlugin);
+
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#94a3b8',
+                                font: { size: 11, family: 'Inter, system-ui, sans-serif', weight: '500' },
+                                padding: 16,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            titleFont: { size: 13, weight: '600' },
+                            bodyColor: '#cbd5e1',
+                            bodyFont: { size: 12 },
+                            borderColor: 'rgba(99, 102, 241, 0.3)',
+                            borderWidth: 1,
+                            padding: { x: 14, y: 10 },
+                            cornerRadius: 10,
+                            displayColors: true,
+                            boxWidth: 8,
+                            boxHeight: 8,
+                            boxPadding: 4,
+                            caretSize: 6,
+                            caretPadding: 8
+                        }
+                    },
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart'
+                    }
+                };
+
+                Object.values(this.charts).forEach(chart => chart?.destroy?.());
+
+                // Type Chart (Doughnut with center text)
+                if (this.data.by_type?.length) {
+                    const typeCtx = document.getElementById('typeChart');
+                    const total = this.data.by_type.reduce((a, b) => a + b.count, 0);
+                    if (typeCtx) {
+                        this.charts.type = new Chart(typeCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: this.data.by_type.map(t => t.label),
+                                datasets: [{
+                                    data: this.data.by_type.map(t => t.count),
+                                    backgroundColor: this.data.by_type.map(t => t.color),
+                                    borderWidth: 0,
+                                    hoverOffset: 6,
+                                    spacing: 2
+                                }]
+                            },
+                            options: {
+                                ...chartOptions,
+                                cutout: '72%',
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    centerText: { value: total, label: 'Total' },
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: { ...chartOptions.plugins.legend.labels, padding: 20 }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Status Chart (Doughnut with center text)
+                if (this.data.by_status?.length) {
+                    const statusColors = {
+                        'to_consume': '#64748b',
+                        'in_progress': '#f59e0b',
+                        'finished': '#10b981',
+                        'abandoned': '#ef4444'
+                    };
+                    const statusCtx = document.getElementById('statusChart');
+                    const finished = this.data.by_status.find(s => s.status === 'finished')?.count || 0;
+                    const total = this.data.by_status.reduce((a, b) => a + b.count, 0);
+                    const pct = total > 0 ? Math.round((finished / total) * 100) : 0;
+                    if (statusCtx) {
+                        this.charts.status = new Chart(statusCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: this.data.by_status.map(s => s.label),
+                                datasets: [{
+                                    data: this.data.by_status.map(s => s.count),
+                                    backgroundColor: this.data.by_status.map(s => statusColors[s.status] || '#64748b'),
+                                    borderWidth: 0,
+                                    hoverOffset: 6,
+                                    spacing: 2
+                                }]
+                            },
+                            options: {
+                                ...chartOptions,
+                                cutout: '72%',
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    centerText: { value: pct + '%', label: 'Completed' },
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: { ...chartOptions.plugins.legend.labels, padding: 20 }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Monthly Activity Chart
+                if (this.data.monthly_activity?.length) {
+                    const activityCtx = document.getElementById('activityChart');
+                    if (activityCtx) {
+                        this.charts.activity = new Chart(activityCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: this.data.monthly_activity.map(m => {
+                                    const [year, month] = m.month.split('-');
+                                    return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short' });
+                                }),
+                                datasets: [
+                                    {
+                                        label: 'Added',
+                                        data: this.data.monthly_activity.map(m => m.added),
+                                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                                        hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                        barPercentage: 0.7,
+                                        categoryPercentage: 0.8
+                                    },
+                                    {
+                                        label: 'Finished',
+                                        data: this.data.monthly_activity.map(m => m.finished),
+                                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                                        hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                        barPercentage: 0.7,
+                                        categoryPercentage: 0.8
+                                    }
+                                ]
+                            },
+                            options: {
+                                ...chartOptions,
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11, weight: '500' },
+                                            padding: 8
+                                        },
+                                        grid: { display: false },
+                                        border: { display: false }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11 },
+                                            padding: 12,
+                                            stepSize: 1,
+                                            callback: (value) => Number.isInteger(value) ? value : ''
+                                        },
+                                        grid: {
+                                            color: 'rgba(51, 65, 85, 0.4)',
+                                            drawBorder: false,
+                                            lineWidth: 1
+                                        },
+                                        border: { display: false, dash: [4, 4] }
+                                    }
+                                },
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    legend: {
+                                        position: 'top',
+                                        align: 'end',
+                                        labels: { ...chartOptions.plugins.legend.labels, padding: 24 }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Rating Distribution Chart (1-5 scale)
+                if (this.data.rating_distribution?.length) {
+                    const ratingCtx = document.getElementById('ratingChart');
+                    if (ratingCtx) {
+                        const ratingData = Array.from({ length: 5 }, (_, i) => {
+                            const rating = i + 1;
+                            const found = this.data.rating_distribution.find(r => Math.floor(r.rating) === rating);
+                            return found?.count || 0;
+                        });
+
+                        const gradient = ratingCtx.getContext('2d').createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.9)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0.6)');
+
+                        this.charts.rating = new Chart(ratingCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: ['1', '2', '3', '4', '5'],
+                                datasets: [{
+                                    label: 'Ratings',
+                                    data: ratingData,
+                                    backgroundColor: gradient,
+                                    hoverBackgroundColor: 'rgba(251, 191, 36, 1)',
+                                    borderRadius: 8,
+                                    borderSkipped: false,
+                                    barPercentage: 0.65
+                                }]
+                            },
+                            options: {
+                                ...chartOptions,
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    legend: { display: false }
+                                },
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11, weight: '500' },
+                                            padding: 8
+                                        },
+                                        grid: { display: false },
+                                        border: { display: false }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11 },
+                                            padding: 12,
+                                            stepSize: 1,
+                                            callback: (value) => Number.isInteger(value) ? value : ''
+                                        },
+                                        grid: {
+                                            color: 'rgba(51, 65, 85, 0.4)',
+                                            lineWidth: 1
+                                        },
+                                        border: { display: false }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Release Year Chart (Area)
+                if (this.data.by_release_year?.length) {
+                    const yearCtx = document.getElementById('yearChart');
+                    if (yearCtx) {
+                        const ctx = yearCtx.getContext('2d');
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+                        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.02)');
+
+                        this.charts.year = new Chart(yearCtx, {
+                            type: 'line',
+                            data: {
+                                labels: this.data.by_release_year.map(y => y.year.toString()),
+                                datasets: [{
+                                    label: 'Media',
+                                    data: this.data.by_release_year.map(y => y.count),
+                                    borderColor: '#6366f1',
+                                    backgroundColor: gradient,
+                                    borderWidth: 2.5,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointBackgroundColor: '#6366f1',
+                                    pointBorderColor: '#1e293b',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    pointHoverRadius: 7,
+                                    pointHoverBackgroundColor: '#818cf8',
+                                    pointHoverBorderWidth: 2
+                                }]
+                            },
+                            options: {
+                                ...chartOptions,
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    legend: { display: false }
+                                },
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 10 },
+                                            maxRotation: 45,
+                                            padding: 8
+                                        },
+                                        grid: { display: false },
+                                        border: { display: false }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11 },
+                                            padding: 12,
+                                            stepSize: 1,
+                                            callback: (value) => Number.isInteger(value) ? value : ''
+                                        },
+                                        grid: {
+                                            color: 'rgba(51, 65, 85, 0.4)',
+                                            lineWidth: 1
+                                        },
+                                        border: { display: false }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Weekly Pattern Chart (Polar Area)
+                if (this.data.weekly_pattern?.length) {
+                    const weeklyCtx = document.getElementById('weeklyChart');
+                    if (weeklyCtx) {
+                        const dayColors = [
+                            'rgba(239, 68, 68, 0.75)',
+                            'rgba(249, 115, 22, 0.75)',
+                            'rgba(234, 179, 8, 0.75)',
+                            'rgba(34, 197, 94, 0.75)',
+                            'rgba(20, 184, 166, 0.75)',
+                            'rgba(59, 130, 246, 0.75)',
+                            'rgba(139, 92, 246, 0.75)'
+                        ];
+
+                        this.charts.weekly = new Chart(weeklyCtx, {
+                            type: 'polarArea',
+                            data: {
+                                labels: this.data.weekly_pattern.map(d => d.day),
+                                datasets: [{
+                                    data: this.data.weekly_pattern.map(d => d.count),
+                                    backgroundColor: dayColors,
+                                    borderWidth: 0,
+                                    hoverBackgroundColor: dayColors.map(c => c.replace('0.75', '0.95'))
+                                }]
+                            },
+                            options: {
+                                ...chartOptions,
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            ...chartOptions.plugins.legend.labels,
+                                            padding: 14,
+                                            font: { size: 10 }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    r: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            display: false,
+                                            stepSize: 1
+                                        },
+                                        grid: {
+                                            color: 'rgba(51, 65, 85, 0.3)',
+                                            circular: true
+                                        },
+                                        pointLabels: { display: false }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Yearly Comparison Chart
+                if (this.data.yearly_comparison?.length) {
+                    const yearlyCtx = document.getElementById('yearlyChart');
+                    if (yearlyCtx) {
+                        this.charts.yearly = new Chart(yearlyCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: this.data.yearly_comparison.map(y => y.year.toString()),
+                                datasets: [
+                                    {
+                                        label: 'Added',
+                                        data: this.data.yearly_comparison.map(y => y.added),
+                                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                                        hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                        barPercentage: 0.7
+                                    },
+                                    {
+                                        label: 'Finished',
+                                        data: this.data.yearly_comparison.map(y => y.finished),
+                                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                                        hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                        borderRadius: 6,
+                                        borderSkipped: false,
+                                        barPercentage: 0.7
+                                    }
+                                ]
+                            },
+                            options: {
+                                ...chartOptions,
+                                scales: {
+                                    x: {
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11, weight: '500' },
+                                            padding: 8
+                                        },
+                                        grid: { display: false },
+                                        border: { display: false }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: '#64748b',
+                                            font: { size: 11 },
+                                            padding: 12,
+                                            stepSize: 1,
+                                            callback: (value) => Number.isInteger(value) ? value : ''
+                                        },
+                                        grid: {
+                                            color: 'rgba(51, 65, 85, 0.4)',
+                                            lineWidth: 1
+                                        },
+                                        border: { display: false }
+                                    }
+                                },
+                                plugins: {
+                                    ...chartOptions.plugins,
+                                    legend: {
+                                        position: 'top',
+                                        align: 'end',
+                                        labels: { ...chartOptions.plugins.legend.labels, padding: 24 }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+</script>
 {% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-6 lg:px-10 xl:px-12 py-5" x-data="statsPage({{ stats | tojson }})">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-white">Statistics</h1>
-        <p class="text-dark-400 mt-1">Your media consumption at a glance.</p>
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto" x-data="statsPage()">
+    <!-- Header with icon -->
+    <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Statistics</h1>
+            <p class="text-slate-400 text-sm">Your media consumption insights</p>
+        </div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <!-- Hero Stats Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <!-- Total Media -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-primary-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
+        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-indigo-500/40 transition-all duration-300 overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-indigo-500/20 transition-colors"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-medium text-indigo-400/80 bg-indigo-500/10 px-2 py-0.5 rounded-full">TOTAL</span>
                 </div>
-                <div>
-                    <p class="text-2xl font-bold text-white">{{ stats.total_media }}</p>
-                    <p class="text-dark-400 text-sm">Total Media</p>
-                </div>
+                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_media }}</p>
+                <p class="text-slate-500 text-xs mt-1">Media items</p>
             </div>
         </div>
 
         <!-- Finished -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-emerald-500/40 transition-all duration-300 overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-colors"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-medium text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-full">DONE</span>
                 </div>
-                <div>
-                    <p class="text-2xl font-bold text-white">{{ stats.total_finished }}</p>
-                    <p class="text-dark-400 text-sm">Finished</p>
-                </div>
+                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_finished }}</p>
+                <p class="text-slate-500 text-xs mt-1">Completed</p>
             </div>
         </div>
 
         <!-- In Progress -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-amber-500/40 transition-all duration-300 overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-amber-500/20 transition-colors"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-medium text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full">ACTIVE</span>
                 </div>
-                <div>
-                    <p class="text-2xl font-bold text-white">{{ stats.total_in_progress }}</p>
-                    <p class="text-dark-400 text-sm">In Progress</p>
-                </div>
+                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_in_progress }}</p>
+                <p class="text-slate-500 text-xs mt-1">In progress</p>
             </div>
         </div>
 
         <!-- Average Rating -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                    </svg>
+        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-yellow-500/40 transition-all duration-300 overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-yellow-500/20 transition-colors"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-medium text-yellow-400/80 bg-yellow-500/10 px-2 py-0.5 rounded-full">AVG</span>
                 </div>
-                <div>
-                    <p class="text-2xl font-bold text-white">{% if stats.average_rating %}{{ "%.1f"|format(stats.average_rating) }}{% else %}-{% endif %}</p>
-                    <p class="text-dark-400 text-sm">Avg Rating</p>
-                </div>
+                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{% if stats.average_rating %}{{ "%.1f"|format(stats.average_rating) }}{% else %}-{% endif %}</p>
+                <p class="text-slate-500 text-xs mt-1">Rating</p>
             </div>
         </div>
     </div>
 
-    <!-- Additional Stats Row -->
-    <div class="grid grid-cols-2 gap-4 mb-8">
+    <!-- Secondary Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <!-- Watch Time -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                     </svg>
                 </div>
-                <div>
+                <div class="min-w-0">
                     {% set hours = (stats.total_watch_time_minutes // 60) %}
                     {% set days = hours // 24 %}
-                    <p class="text-2xl font-bold text-white">{% if days > 0 %}{{ days }}d {{ hours % 24 }}h{% else %}{{ hours }}h{% endif %}</p>
-                    <p class="text-dark-400 text-sm">Watch Time</p>
+                    <p class="text-xl font-bold text-white truncate">{% if days > 0 %}{{ days }}<span class="text-slate-500 text-sm font-medium">d</span> {{ hours % 24 }}<span class="text-slate-500 text-sm font-medium">h</span>{% else %}{{ hours }}<span class="text-slate-500 text-sm font-medium">h</span>{% endif %}</p>
+                    <p class="text-slate-500 text-xs">Watch Time</p>
                 </div>
             </div>
         </div>
 
         <!-- Pages Read -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-5">
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
             <div class="flex items-center gap-3">
-                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                <div class="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                     </svg>
                 </div>
-                <div>
-                    <p class="text-2xl font-bold text-white">{{ "{:,}".format(stats.total_pages_read) }}</p>
-                    <p class="text-dark-400 text-sm">Pages Read</p>
+                <div class="min-w-0">
+                    <p class="text-xl font-bold text-white truncate">{{ "{:,}".format(stats.total_pages_read) }}</p>
+                    <p class="text-slate-500 text-xs">Pages Read</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Streak -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xl font-bold text-white">{{ stats.streak.current_streak if stats.streak else 0 }}<span class="text-slate-500 text-sm font-medium ml-1">days</span></p>
+                    <p class="text-slate-500 text-xs">Current Streak</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Best Streak -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xl font-bold text-white">{{ stats.streak.longest_streak if stats.streak else 0 }}<span class="text-slate-500 text-sm font-medium ml-1">days</span></p>
+                    <p class="text-slate-500 text-xs">Best Streak</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Media by Type (Doughnut Chart) -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">Media by Type</h2>
-            <div class="relative h-64">
+    <!-- Distribution Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-5">
+        <!-- Media by Type -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500/30 to-purple-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">Media by Type</h2>
+            </div>
+            <div class="relative h-56 sm:h-64">
                 <canvas id="typeChart"></canvas>
             </div>
+            {% if not stats.by_type %}
+            <div class="absolute inset-0 flex items-center justify-center">
+                <p class="text-slate-500 text-sm">No data yet</p>
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Media by Status (Doughnut Chart) -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">Media by Status</h2>
-            <div class="relative h-64">
+        <!-- Media by Status -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-emerald-500/30 to-teal-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">Completion Status</h2>
+            </div>
+            <div class="relative h-56 sm:h-64">
                 <canvas id="statusChart"></canvas>
             </div>
+            {% if not stats.by_status %}
+            <div class="absolute inset-0 flex items-center justify-center">
+                <p class="text-slate-500 text-sm">No data yet</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Monthly Activity (Bar Chart) -->
-    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6 mb-8">
-        <h2 class="text-lg font-semibold text-white mb-4">Monthly Activity</h2>
-        <div class="relative h-72">
+    <!-- Monthly Activity -->
+    <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6 mb-5">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <h2 class="text-sm font-semibold text-white">Monthly Activity</h2>
+            <span class="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">Last 12 months</span>
+        </div>
+        <div class="relative h-64 sm:h-72">
             <canvas id="activityChart"></canvas>
         </div>
         {% if not stats.monthly_activity %}
-        <p class="text-dark-400 text-center py-8">No activity data yet</p>
+        <div class="flex items-center justify-center h-64">
+            <p class="text-slate-500 text-sm">No activity data yet</p>
+        </div>
         {% endif %}
     </div>
 
-    <!-- Two Column Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Genres & Ratings -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mb-5">
         <!-- Top Genres -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">Top Genres</h2>
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">Top Genres</h2>
+            </div>
             {% if stats.top_genres %}
             <div class="space-y-3">
                 {% for genre in stats.top_genres %}
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 bg-dark-800 rounded-full flex items-center justify-center text-xs text-dark-400">{{ loop.index }}</span>
-                        <span class="text-white">{{ genre.name }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-24 h-2 bg-dark-800 rounded-full overflow-hidden">
-                            <div class="h-full bg-primary-500 rounded-full" style="width: {{ (genre.count / stats.top_genres[0].count * 100) | int }}%"></div>
+                <div class="flex items-center gap-3 group">
+                    <span class="w-6 h-6 bg-slate-700/60 group-hover:bg-indigo-500/20 rounded-lg flex items-center justify-center text-[10px] text-slate-400 group-hover:text-indigo-400 font-semibold flex-shrink-0 transition-colors">{{ loop.index }}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-sm text-white truncate font-medium">{{ genre.name }}</span>
+                            <span class="text-slate-400 text-xs font-medium ml-2 tabular-nums">{{ genre.count }}</span>
                         </div>
-                        <span class="text-dark-400 text-sm w-8 text-right">{{ genre.count }}</span>
+                        <div class="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700 ease-out" style="width: {{ (genre.count / stats.top_genres[0].count * 100) | int }}%"></div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-dark-400 text-center py-8">No genre data yet</p>
+            <div class="flex flex-col items-center justify-center h-48 text-center">
+                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                <p class="text-slate-500 text-sm">No genre data yet</p>
+            </div>
             {% endif %}
         </div>
 
         <!-- Rating Distribution -->
-        <div class="bg-dark-900 rounded-xl border border-dark-800 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">Rating Distribution</h2>
-            <div class="relative h-48">
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-yellow-500/30 to-amber-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">Rating Distribution</h2>
+            </div>
+            <div class="relative h-48 sm:h-56">
                 <canvas id="ratingChart"></canvas>
             </div>
             {% if not stats.rating_distribution %}
-            <p class="text-dark-400 text-center py-8">No ratings yet</p>
+            <div class="flex flex-col items-center justify-center h-48 text-center">
+                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                </svg>
+                <p class="text-slate-500 text-sm">No ratings yet</p>
+            </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Release Years -->
-    <div class="bg-dark-900 rounded-xl border border-dark-800 p-6">
-        <h2 class="text-lg font-semibold text-white mb-4">Media by Release Year</h2>
-        <div class="relative h-64">
-            <canvas id="yearChart"></canvas>
+    <!-- Timeline Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mb-5">
+        <!-- Release Years -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">By Release Year</h2>
+            </div>
+            <div class="relative h-56 sm:h-64">
+                <canvas id="yearChart"></canvas>
+            </div>
+            {% if not stats.by_release_year %}
+            <div class="flex flex-col items-center justify-center h-56 text-center">
+                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-slate-500 text-sm">No release year data</p>
+            </div>
+            {% endif %}
         </div>
-        {% if not stats.by_release_year %}
-        <p class="text-dark-400 text-center py-8">No release year data yet</p>
+
+        <!-- Year Comparison -->
+        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-8 h-8 bg-gradient-to-br from-violet-500/30 to-purple-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-semibold text-white">Year Comparison</h2>
+            </div>
+            <div class="relative h-56 sm:h-64">
+                <canvas id="yearlyChart"></canvas>
+            </div>
+            {% if not stats.yearly_comparison %}
+            <div class="flex flex-col items-center justify-center h-56 text-center">
+                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+                <p class="text-slate-500 text-sm">No yearly data</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Weekly Pattern -->
+    <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-8 h-8 bg-gradient-to-br from-orange-500/30 to-red-500/30 rounded-lg flex items-center justify-center">
+                <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </div>
+            <h2 class="text-sm font-semibold text-white">Weekly Activity Pattern</h2>
+            <span class="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">By day of week</span>
+        </div>
+        <div class="relative h-64 sm:h-72 max-w-sm mx-auto">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+        {% if not stats.weekly_pattern %}
+        <div class="flex flex-col items-center justify-center h-64 text-center">
+            <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <p class="text-slate-500 text-sm">No weekly data</p>
+        </div>
         {% endif %}
     </div>
 </div>
-
-<script>
-function statsPage(data) {
-    return {
-        data: data,
-        charts: {},
-
-        init() {
-            this.$nextTick(() => this.renderCharts());
-        },
-
-        renderCharts() {
-            if (!this.data) return;
-
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#9ca3af',
-                            font: { size: 12 }
-                        }
-                    }
-                }
-            };
-
-            // Destroy existing charts
-            Object.values(this.charts).forEach(chart => chart?.destroy?.());
-
-            // Type Chart (Doughnut)
-            if (this.data.by_type?.length) {
-                const typeCtx = document.getElementById('typeChart');
-                this.charts.type = new Chart(typeCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: this.data.by_type.map(t => t.label),
-                        datasets: [{
-                            data: this.data.by_type.map(t => t.count),
-                            backgroundColor: this.data.by_type.map(t => t.color),
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        ...chartOptions,
-                        cutout: '60%',
-                        plugins: {
-                            ...chartOptions.plugins,
-                            legend: {
-                                position: 'right',
-                                labels: { color: '#9ca3af', padding: 15 }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Status Chart (Doughnut)
-            if (this.data.by_status?.length) {
-                const statusColors = {
-                    'to_consume': '#6b7280',
-                    'in_progress': '#eab308',
-                    'finished': '#22c55e',
-                    'abandoned': '#ef4444'
-                };
-                const statusCtx = document.getElementById('statusChart');
-                this.charts.status = new Chart(statusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: this.data.by_status.map(s => s.label),
-                        datasets: [{
-                            data: this.data.by_status.map(s => s.count),
-                            backgroundColor: this.data.by_status.map(s => statusColors[s.status] || '#6b7280'),
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        ...chartOptions,
-                        cutout: '60%',
-                        plugins: {
-                            ...chartOptions.plugins,
-                            legend: {
-                                position: 'right',
-                                labels: { color: '#9ca3af', padding: 15 }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Monthly Activity Chart (Bar)
-            if (this.data.monthly_activity?.length) {
-                const activityCtx = document.getElementById('activityChart');
-                this.charts.activity = new Chart(activityCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: this.data.monthly_activity.map(m => {
-                            const [year, month] = m.month.split('-');
-                            return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                        }),
-                        datasets: [
-                            {
-                                label: 'Added',
-                                data: this.data.monthly_activity.map(m => m.added),
-                                backgroundColor: '#6366f1',
-                                borderRadius: 4
-                            },
-                            {
-                                label: 'Finished',
-                                data: this.data.monthly_activity.map(m => m.finished),
-                                backgroundColor: '#22c55e',
-                                borderRadius: 4
-                            }
-                        ]
-                    },
-                    options: {
-                        ...chartOptions,
-                        scales: {
-                            x: {
-                                ticks: { color: '#6b7280' },
-                                grid: { color: '#1f2937' }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: { color: '#6b7280', stepSize: 1 },
-                                grid: { color: '#1f2937' }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Rating Distribution Chart (Bar)
-            if (this.data.rating_distribution?.length) {
-                const ratingCtx = document.getElementById('ratingChart');
-                // Fill in missing ratings (1-10)
-                const ratingData = Array.from({ length: 10 }, (_, i) => {
-                    const rating = i + 1;
-                    const found = this.data.rating_distribution.find(r => Math.floor(r.rating) === rating);
-                    return found?.count || 0;
-                });
-
-                this.charts.rating = new Chart(ratingCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-                        datasets: [{
-                            label: 'Count',
-                            data: ratingData,
-                            backgroundColor: '#eab308',
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        ...chartOptions,
-                        plugins: {
-                            ...chartOptions.plugins,
-                            legend: { display: false }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#6b7280' },
-                                grid: { display: false }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: { color: '#6b7280', stepSize: 1 },
-                                grid: { color: '#1f2937' }
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Release Year Chart (Bar)
-            if (this.data.by_release_year?.length) {
-                const yearCtx = document.getElementById('yearChart');
-                this.charts.year = new Chart(yearCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: this.data.by_release_year.map(y => y.year.toString()),
-                        datasets: [{
-                            label: 'Media',
-                            data: this.data.by_release_year.map(y => y.count),
-                            backgroundColor: '#6366f1',
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        ...chartOptions,
-                        plugins: {
-                            ...chartOptions.plugins,
-                            legend: { display: false }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#6b7280' },
-                                grid: { display: false }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: { color: '#6b7280', stepSize: 1 },
-                                grid: { color: '#1f2937' }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    }
-}
-</script>
 {% endblock %}

@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import Integer, func, select, text
+from sqlalchemy import Integer, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import get_current_user
@@ -63,6 +63,30 @@ class RatingDistribution(BaseModel):
     count: int
 
 
+class StreakInfo(BaseModel):
+    """Consumption streak information."""
+
+    current_streak: int  # Days in current streak
+    longest_streak: int
+    streak_start_date: str | None = None
+
+
+class WeeklyPattern(BaseModel):
+    """Activity pattern by day of week."""
+
+    day: str  # Mon, Tue, etc.
+    day_number: int  # 0=Mon, 6=Sun
+    count: int
+
+
+class YearlyComparison(BaseModel):
+    """Year-over-year comparison."""
+
+    year: int
+    finished: int
+    added: int
+
+
 class StatsResponse(BaseModel):
     """Full statistics response."""
 
@@ -82,6 +106,11 @@ class StatsResponse(BaseModel):
     monthly_activity: list[MonthlyActivity]
     by_release_year: list[YearCount]
     rating_distribution: list[RatingDistribution]
+
+    # Advanced stats
+    streak: StreakInfo | None = None
+    weekly_pattern: list[WeeklyPattern] = []
+    yearly_comparison: list[YearlyComparison] = []
 
 
 TYPE_CONFIG = {
@@ -181,6 +210,39 @@ async def get_stats(
         .order_by(text("rating_floor"))
     )
 
+    # Weekly pattern query - what day of week do they finish most?
+    weekly_query = (
+        select(
+            func.extract("dow", Media.consumed_at).label("day_num"),
+            func.count(Media.id).label("count"),
+        )
+        .where(user_filter, Media.consumed_at.is_not(None))
+        .group_by(text("day_num"))
+        .order_by(text("day_num"))
+    )
+
+    # Yearly comparison query
+    year_expr = func.extract("year", Media.created_at)
+    yearly_query = (
+        select(
+            year_expr.label("year"),
+            func.sum(func.cast(Media.status == MediaStatus.FINISHED, Integer)).label("finished"),
+            func.count(Media.id).label("added"),
+        )
+        .where(user_filter)
+        .group_by(year_expr)
+        .order_by(year_expr.desc())
+        .limit(5)
+    )
+
+    # Streak query - get all consumed dates
+    streak_dates_query = (
+        select(func.date(Media.consumed_at).label("consumed_date"))
+        .where(user_filter, Media.consumed_at.is_not(None))
+        .distinct()
+        .order_by(func.date(Media.consumed_at).desc())
+    )
+
     # Execute all queries in parallel
     (
         summary_result,
@@ -191,6 +253,9 @@ async def get_stats(
         finished_result,
         year_result,
         rating_result,
+        weekly_result,
+        yearly_result,
+        streak_dates_result,
     ) = await asyncio.gather(
         db.execute(summary_query),
         db.execute(type_query),
@@ -200,6 +265,9 @@ async def get_stats(
         db.execute(finished_query),
         db.execute(year_query),
         db.execute(rating_query),
+        db.execute(weekly_query),
+        db.execute(yearly_query),
+        db.execute(streak_dates_query),
     )
 
     # Process results
@@ -248,6 +316,35 @@ async def get_stats(
         for row in rating_result.all()
     ]
 
+    # Process weekly pattern
+    day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    weekly_data = {int(row.day_num): row.count for row in weekly_result.all()}
+    weekly_pattern = [
+        WeeklyPattern(
+            day=day_names[i],
+            day_number=i,
+            count=weekly_data.get(i, 0),
+        )
+        for i in range(7)
+    ]
+
+    # Process yearly comparison
+    yearly_comparison = sorted(
+        [
+            YearlyComparison(
+                year=int(row.year),
+                finished=row.finished or 0,
+                added=row.added or 0,
+            )
+            for row in yearly_result.all()
+        ],
+        key=lambda x: x.year,
+    )
+
+    # Calculate streaks
+    streak_dates = [row.consumed_date for row in streak_dates_result.all()]
+    streak = _calculate_streak(streak_dates)
+
     return StatsResponse(
         total_media=summary.total or 0,
         total_finished=summary.finished or 0,
@@ -262,4 +359,63 @@ async def get_stats(
         monthly_activity=monthly_activity,
         by_release_year=by_release_year,
         rating_distribution=rating_distribution,
+        streak=streak,
+        weekly_pattern=weekly_pattern,
+        yearly_comparison=yearly_comparison,
+    )
+
+
+def _calculate_streak(dates: list) -> StreakInfo | None:
+    """Calculate consumption streak from list of dates."""
+    if not dates:
+        return StreakInfo(current_streak=0, longest_streak=0)
+
+    from datetime import date
+
+    # Convert to date objects if needed and sort descending
+    sorted_dates = sorted(
+        [d if isinstance(d, date) else d.date() for d in dates],
+        reverse=True,
+    )
+
+    today = date.today()
+    current_streak = 0
+    longest_streak = 0
+    streak_start = None
+
+    # Check if most recent is today or yesterday (to count ongoing streak)
+    if sorted_dates:
+        most_recent = sorted_dates[0]
+        days_since_last = (today - most_recent).days
+
+        if days_since_last <= 1:
+            # Calculate current streak
+            current_streak = 1
+            streak_start = most_recent
+            for i in range(1, len(sorted_dates)):
+                prev = sorted_dates[i - 1]
+                curr = sorted_dates[i]
+                if (prev - curr).days == 1:
+                    current_streak += 1
+                    streak_start = curr
+                else:
+                    break
+
+    # Calculate longest streak
+    if len(sorted_dates) >= 1:
+        temp_streak = 1
+        for i in range(1, len(sorted_dates)):
+            prev = sorted_dates[i - 1]
+            curr = sorted_dates[i]
+            if (prev - curr).days == 1:
+                temp_streak += 1
+            else:
+                longest_streak = max(longest_streak, temp_streak)
+                temp_streak = 1
+        longest_streak = max(longest_streak, temp_streak)
+
+    return StreakInfo(
+        current_streak=current_streak,
+        longest_streak=longest_streak,
+        streak_start_date=streak_start.isoformat() if streak_start else None,
     )

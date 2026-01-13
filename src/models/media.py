@@ -225,15 +225,15 @@ class Media(Base, TimestampMixin):
     authors: Mapped[list[Author]] = relationship("Author", secondary=media_authors, lazy="selectin")
     tags: Mapped[list[Tag]] = relationship("Tag", secondary=media_tags, lazy="selectin")
 
-    # Type-specific metadata (one-to-one)
+    # Type-specific metadata (one-to-one) - use selectin to avoid N+1 queries
     film_metadata: Mapped["FilmMetadata | None"] = relationship(
-        "FilmMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan"
+        "FilmMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan", lazy="selectin"
     )
     book_metadata: Mapped["BookMetadata | None"] = relationship(
-        "BookMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan"
+        "BookMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan", lazy="selectin"
     )
     youtube_metadata: Mapped["YouTubeMetadata | None"] = relationship(
-        "YouTubeMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan"
+        "YouTubeMetadata", back_populates="media", uselist=False, cascade="all, delete-orphan", lazy="selectin"
     )
 
     __table_args__ = (

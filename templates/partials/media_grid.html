@@ -9,10 +9,10 @@
         {% for media in media_list %}
         {# Check if media has a direct link to watch/consume or is owned #}
         {% set ns = namespace(has_direct_link=false) %}
-        {# Films/Series: check streaming platforms (flatrate only) #}
+        {# Films/Series: check streaming platforms (flatrate or free) #}
         {% if media.type.value in ['film', 'series'] and media.streaming_links and user_platforms %}
             {% for provider_id, link_info in media.streaming_links.items() %}
-                {% if provider_id in user_platforms and link_info.get('type') == 'flatrate' %}
+                {% if provider_id in user_platforms and link_info.get('type') in ['flatrate', 'free'] %}
                     {% set ns.has_direct_link = true %}
                 {% endif %}
             {% endfor %}
@@ -121,7 +121,7 @@
                     {% elif media.duration_minutes %}
                         {% if media.year %}&bull; {% endif %}{{ media.duration_minutes | format_duration }}
                     {% endif %}
-                    {% if media.page_count %}{{ media.page_count }} pages{% endif %}
+                    {% if media.page_count %}{% if media.year %}&bull; {% endif %}{{ media.page_count }} pages{% endif %}
                 </p>
                 {% if show_incomplete and media.missing_fields %}
                 <p class="text-xs text-orange-400 mt-1 line-clamp-1">
@@ -146,6 +146,7 @@
     {% if current_sort_order and current_sort_order != 'desc' %}{% set _ = filter_params.append('sort_order=' ~ current_sort_order) %}{% endif %}
     {% if show_incomplete %}{% set _ = filter_params.append('incomplete=1') %}{% endif %}
     {% if streamable_only %}{% set _ = filter_params.append('streamable=1') %}{% endif %}
+    {% if unrated_only %}{% set _ = filter_params.append('unrated=1') %}{% endif %}
     {% set filter_query = filter_params | join('&') %}
     {% set filter_query_prefix = '&' ~ filter_query if filter_query else '' %}
 
@@ -188,9 +189,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
             </svg>
         </div>
-        {% if search or current_type or current_status or streamable_only %}
+        {% if search or current_type or current_status or streamable_only or unrated_only %}
         <h2 class="text-xl font-semibold text-white mb-2">No results found</h2>
-        <p class="text-dark-400 mb-6">{% if streamable_only %}No media available on your streaming platforms. {% endif %}Try adjusting your filters or search term.</p>
+        <p class="text-dark-400 mb-6">{% if unrated_only %}All your media has been rated! Great job - this helps improve AI recommendations.{% elif streamable_only %}No media available on your streaming platforms. {% endif %}{% if not unrated_only %}Try adjusting your filters or search term.{% endif %}</p>
         <a href="/catalogue" class="text-primary-500 hover:text-primary-400">Clear all filters</a>
         {% else %}
         <h2 class="text-xl font-semibold text-white mb-2">Your library is empty</h2>

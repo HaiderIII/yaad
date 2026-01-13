@@ -14,6 +14,7 @@ from src.models.media import (
     media_genres,
     media_tags,
 )
+from src.models.recommendation import Recommendation
 from src.models.user import User
 from src.models.youtube import YouTubeMetadata
 
@@ -32,4 +33,5 @@ __all__ = [
     "FilmMetadata",
     "BookMetadata",
     "YouTubeMetadata",
+    "Recommendation",
 ]

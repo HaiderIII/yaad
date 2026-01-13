@@ -10,7 +10,14 @@
     "stats": "Statistiques",
     "settings": "Paramètres",
     "logout": "Déconnexion",
-    "search": "Rechercher..."
+    "search": "Rechercher...",
+    "quick_actions": "Actions rapides",
+    "add_media": "Ajouter un média",
+    "browse_media": "Parcourir tous les médias",
+    "your_activity": "Votre activité",
+    "to_search": "pour rechercher",
+    "to_close": "pour fermer",
+    "recommendations": "Pour vous"
   },
   "auth": {
     "login": "Connexion",
@@ -40,7 +47,8 @@
     "jellyfin_connect": "Connectez Jellyfin pour voir votre progression ici.",
     "recently_added": "Récemment ajoutés",
     "view_all": "Voir tout",
-    "add_first": "Ajoutez votre premier média pour le voir ici."
+    "add_first": "Ajoutez votre premier média pour le voir ici.",
+    "no_media_yet": "Aucun média ajouté pour le moment."
   },
   "media": {
     "type": {
@@ -65,7 +73,9 @@
       "delete": "Supprimer",
       "watch": "Regarder",
       "read": "Lire"
-    }
+    },
+    "owned": "Possédé",
+    "direct_link": "Lien direct disponible"
   },
   "catalogue": {
     "title": "Catalogue",
@@ -87,10 +97,15 @@
     "medias_found": "{count} médias trouvés",
     "page_of": "Page {page} sur {pages}",
     "previous": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "results_for": "résultats pour",
+    "result_for": "résultat pour",
+    "add_new_media": "Ajouter un nouveau média"
   },
   "settings": {
     "title": "Paramètres",
+    "subtitle": "Gérez votre compte et vos préférences.",
+    "profile": "Profil",
     "language": "Langue",
     "language_description": "Choisissez votre langue préférée",
     "english": "Anglais",
@@ -99,8 +114,82 @@
     "country_description": "Utilisé pour la disponibilité du streaming",
     "streaming_platforms": "Plateformes de streaming",
     "streaming_description": "Sélectionnez les plateformes auxquelles vous avez accès",
+    "my_streaming_services": "Mes services de streaming",
     "save_changes": "Enregistrer les modifications",
-    "saved": "Paramètres enregistrés avec succès"
+    "saved": "Paramètres enregistrés avec succès",
+    "saving": "Enregistrement...",
+    "error_saving": "Erreur lors de l'enregistrement",
+    "connected_accounts": "Comptes connectés",
+    "connected": "Connecté",
+    "connect": "Connecter",
+    "disconnect": "Déconnecter",
+    "integrations": "Intégrations",
+    "coming_soon": "Bientôt disponible",
+    "danger_zone": "Zone de danger",
+    "delete_account": "Supprimer le compte",
+    "delete_account_description": "Supprimer définitivement votre compte et toutes vos données"
+  },
+  "letterboxd": {
+    "title": "Letterboxd",
+    "description": "Synchronisez automatiquement votre journal de films",
+    "username_label": "Nom d'utilisateur Letterboxd",
+    "username_placeholder": "votre_nom",
+    "connect": "Connecter",
+    "checking": "Vérification...",
+    "connected_as": "Connecté en tant que",
+    "quick_sync": "Synchronisation rapide",
+    "quick_sync_description": "Importez vos ~50 entrées les plus récentes via RSS. Rapide et fiable.",
+    "sync_recent": "Sync récents",
+    "full_import": "Import complet",
+    "full_import_description": "Importez toute votre bibliothèque Letterboxd. Plus long mais tout est récupéré.",
+    "import_all": "Tout importer",
+    "import_watchlist": "Importer la watchlist",
+    "import_watchlist_description": "Importez votre watchlist Letterboxd comme éléments \"À voir\".",
+    "importing_films": "Import des films...",
+    "fetching_films": "Récupération des films depuis Letterboxd...",
+    "fetching_watchlist": "Récupération de la watchlist depuis Letterboxd...",
+    "syncing": "Synchronisation...",
+    "importing": "Import...",
+    "imported": "importés",
+    "skipped": "ignorés",
+    "failed": "échoués",
+    "films_failed": "film(s) n'ont pas pu être importés",
+    "found_films": "Trouvé {total} films. {imported} importés, {skipped} ignorés, {failed} échoués.",
+    "csv_import": "Ou importer depuis un export CSV",
+    "csv_instructions": "Exportez vos données depuis les paramètres Letterboxd, puis uploadez diary.csv ou watched.csv.",
+    "drop_csv": "Déposez le fichier CSV ici ou cliquez pour parcourir"
+  },
+  "kobo": {
+    "title": "Kobo",
+    "description": "Synchronisez votre progression de lecture depuis Kobo",
+    "connect_description": "Connectez votre compte Kobo pour synchroniser la progression de lecture de vos ebooks.",
+    "connect_account": "Connecter le compte Kobo",
+    "starting": "Démarrage...",
+    "step1_title": "Étape 1 : Entrez le code sur Kobo",
+    "step1_description": "Allez sur kobo.com/activate et entrez ce code :",
+    "open_activation": "Ouvrir l'activation Kobo",
+    "step2_title": "Étape 2 : En attente d'autorisation",
+    "step2_waiting": "Cliquez sur \"Ouvrir l'activation Kobo\" ci-dessus. Nous détecterons automatiquement votre autorisation.",
+    "waiting_authorize": "En attente de votre autorisation sur Kobo...",
+    "cancel": "Annuler",
+    "connected_to": "Connecté à Kobo",
+    "sync_progress": "Synchroniser la progression",
+    "sync_progress_description": "Mettez à jour votre bibliothèque Yaad avec la progression de lecture depuis Kobo. Correspondance par ISBN ou titre.",
+    "sync_now": "Synchroniser"
+  },
+  "notion": {
+    "title": "Import Notion",
+    "description": "Importez votre bibliothèque depuis un export CSV Notion",
+    "supported_types": "Types supportés depuis Notion :",
+    "drop_csv": "Déposez le fichier CSV Notion ici ou cliquez pour parcourir",
+    "start_import": "Démarrer l'import",
+    "importing_media": "Import des médias...",
+    "import_complete": "Import terminé !",
+    "items_failed": "élément(s) n'ont pas pu être importés"
+  },
+  "jellyfin": {
+    "title": "Jellyfin",
+    "description": "Synchronisez l'historique de visionnage depuis votre serveur Jellyfin"
   },
   "common": {
     "save": "Enregistrer",
@@ -109,6 +198,13 @@
     "confirm": "Confirmer",
     "loading": "Chargement...",
     "error": "Erreur",
-    "success": "Succès"
+    "success": "Succès",
+    "import": "Importer",
+    "export": "Exporter",
+    "sync": "Synchroniser",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "network_error": "Erreur réseau. Veuillez réessayer.",
+    "connection_lost": "Connexion perdue. Veuillez réessayer."
   }
 }

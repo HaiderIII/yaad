@@ -6,6 +6,7 @@ import httpx
 
 from src.config import get_settings
 from src.constants import HTTPX_TIMEOUT
+from src.utils.cache import CACHE_TTL_LONG, CACHE_TTL_MEDIUM, cached
 
 settings = get_settings()
 
@@ -109,6 +110,16 @@ class TMDBService:
         if not self.api_key:
             return None
 
+        return await self._fetch_movie_details(tmdb_id, language, country)
+
+    @cached("tmdb:movie", ttl=CACHE_TTL_MEDIUM)
+    async def _fetch_movie_details(
+        self,
+        tmdb_id: int,
+        language: str = "fr-FR",
+        country: str = "FR",
+    ) -> dict[str, Any] | None:
+        """Fetch movie details from TMDB API (cached)."""
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             # Get movie details with credits, keywords, and release dates (for certification)
             params = self._add_api_key({
@@ -290,6 +301,16 @@ class TMDBService:
         if not self.api_key:
             return None
 
+        return await self._fetch_tv_details(tmdb_id, language, country)
+
+    @cached("tmdb:tv", ttl=CACHE_TTL_MEDIUM)
+    async def _fetch_tv_details(
+        self,
+        tmdb_id: int,
+        language: str = "fr-FR",
+        country: str = "FR",
+    ) -> dict[str, Any] | None:
+        """Fetch TV details from TMDB API (cached)."""
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             # Get TV details with credits, keywords, and content ratings
             params = self._add_api_key({
@@ -484,6 +505,14 @@ class TMDBService:
         if not self.api_key:
             return []
 
+        return await self._fetch_available_providers(country)
+
+    @cached("tmdb:providers", ttl=CACHE_TTL_LONG)
+    async def _fetch_available_providers(
+        self,
+        country: str = "FR",
+    ) -> list[dict[str, Any]]:
+        """Fetch available providers from TMDB API (cached)."""
         async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
             params = self._add_api_key({
                 "watch_region": country,
@@ -513,6 +542,411 @@ class TMDBService:
             providers.sort(key=lambda x: x["display_priority"])
 
             return providers
+
+
+    async def get_trending(
+        self,
+        media_type: str = "movie",
+        time_window: str = "week",
+        language: str = "fr-FR",
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
+        """Get trending movies or TV shows.
+
+        Args:
+            media_type: "movie" or "tv"
+            time_window: "day" or "week"
+            language: Language for results
+            page: Page number (1-based)
+
+        Returns:
+            List of trending media
+        """
+        if not self.api_key:
+            return []
+
+        params = self._add_api_key({
+            "language": language,
+            "page": str(page),
+        })
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(
+                f"{TMDB_BASE_URL}/trending/{media_type}/{time_window}",
+                params=params,
+                headers=self.headers,
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get("results", []):
+                if media_type == "movie":
+                    title = item.get("original_title") or item.get("title", "")
+                    year = item.get("release_date", "")[:4] or None
+                else:
+                    title = item.get("original_name") or item.get("name", "")
+                    year = item.get("first_air_date", "")[:4] or None
+
+                results.append({
+                    "id": item["id"],
+                    "title": title,
+                    "year": year,
+                    "overview": item.get("overview"),
+                    "poster_url": (
+                        f"{TMDB_IMAGE_BASE}/w342{item['poster_path']}"
+                        if item.get("poster_path")
+                        else None
+                    ),
+                    "vote_average": item.get("vote_average"),
+                    "popularity": item.get("popularity"),
+                    "genre_ids": item.get("genre_ids", []),
+                })
+
+            return results
+
+    async def discover(
+        self,
+        media_type: str = "movie",
+        language: str = "fr-FR",
+        sort_by: str = "popularity.desc",
+        with_genres: list[int] | None = None,
+        without_genres: list[int] | None = None,
+        vote_average_gte: float | None = None,
+        vote_count_gte: int | None = None,
+        year: int | None = None,
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
+        """Discover movies or TV shows with filters.
+
+        Args:
+            media_type: "movie" or "tv"
+            language: Language for results
+            sort_by: Sort order (popularity.desc, vote_average.desc, etc.)
+            with_genres: Genre IDs to include
+            without_genres: Genre IDs to exclude
+            vote_average_gte: Minimum vote average
+            vote_count_gte: Minimum vote count
+            year: Release year filter
+            page: Page number (1-based)
+
+        Returns:
+            List of discovered media
+        """
+        if not self.api_key:
+            return []
+
+        params = self._add_api_key({
+            "language": language,
+            "sort_by": sort_by,
+            "include_adult": "false",
+            "page": str(page),
+        })
+
+        if with_genres:
+            params["with_genres"] = ",".join(str(g) for g in with_genres)
+        if without_genres:
+            params["without_genres"] = ",".join(str(g) for g in without_genres)
+        if vote_average_gte:
+            params["vote_average.gte"] = str(vote_average_gte)
+        if vote_count_gte:
+            params["vote_count.gte"] = str(vote_count_gte)
+        if year:
+            if media_type == "movie":
+                params["primary_release_year"] = str(year)
+            else:
+                params["first_air_date_year"] = str(year)
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(
+                f"{TMDB_BASE_URL}/discover/{media_type}",
+                params=params,
+                headers=self.headers,
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get("results", []):
+                if media_type == "movie":
+                    title = item.get("original_title") or item.get("title", "")
+                    year_val = item.get("release_date", "")[:4] or None
+                else:
+                    title = item.get("original_name") or item.get("name", "")
+                    year_val = item.get("first_air_date", "")[:4] or None
+
+                results.append({
+                    "id": item["id"],
+                    "title": title,
+                    "year": year_val,
+                    "overview": item.get("overview"),
+                    "poster_url": (
+                        f"{TMDB_IMAGE_BASE}/w342{item['poster_path']}"
+                        if item.get("poster_path")
+                        else None
+                    ),
+                    "vote_average": item.get("vote_average"),
+                    "popularity": item.get("popularity"),
+                    "genre_ids": item.get("genre_ids", []),
+                })
+
+            return results
+
+    async def get_recommendations(
+        self,
+        tmdb_id: int,
+        media_type: str = "movie",
+        language: str = "fr-FR",
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
+        """Get TMDB recommendations for a movie or TV show.
+
+        Args:
+            tmdb_id: TMDB ID of the source media
+            media_type: "movie" or "tv"
+            language: Language for results
+            page: Page number (1-based)
+
+        Returns:
+            List of recommended media
+        """
+        if not self.api_key:
+            return []
+
+        params = self._add_api_key({
+            "language": language,
+            "page": str(page),
+        })
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(
+                f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}/recommendations",
+                params=params,
+                headers=self.headers,
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get("results", []):
+                if media_type == "movie":
+                    title = item.get("original_title") or item.get("title", "")
+                    year = item.get("release_date", "")[:4] or None
+                else:
+                    title = item.get("original_name") or item.get("name", "")
+                    year = item.get("first_air_date", "")[:4] or None
+
+                results.append({
+                    "id": item["id"],
+                    "title": title,
+                    "year": year,
+                    "overview": item.get("overview"),
+                    "poster_url": (
+                        f"{TMDB_IMAGE_BASE}/w342{item['poster_path']}"
+                        if item.get("poster_path")
+                        else None
+                    ),
+                    "vote_average": item.get("vote_average"),
+                    "popularity": item.get("popularity"),
+                })
+
+            return results
+
+    async def get_similar(
+        self,
+        tmdb_id: int,
+        media_type: str = "movie",
+        language: str = "fr-FR",
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
+        """Get similar movies or TV shows from TMDB.
+
+        Args:
+            tmdb_id: TMDB ID of the source media
+            media_type: "movie" or "tv"
+            language: Language for results
+            page: Page number (1-based)
+
+        Returns:
+            List of similar media
+        """
+        if not self.api_key:
+            return []
+
+        params = self._add_api_key({
+            "language": language,
+            "page": str(page),
+        })
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(
+                f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}/similar",
+                params=params,
+                headers=self.headers,
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            results = []
+
+            for item in data.get("results", []):
+                if media_type == "movie":
+                    title = item.get("original_title") or item.get("title", "")
+                    year = item.get("release_date", "")[:4] or None
+                else:
+                    title = item.get("original_name") or item.get("name", "")
+                    year = item.get("first_air_date", "")[:4] or None
+
+                results.append({
+                    "id": item["id"],
+                    "title": title,
+                    "year": year,
+                    "overview": item.get("overview"),
+                    "poster_url": (
+                        f"{TMDB_IMAGE_BASE}/w342{item['poster_path']}"
+                        if item.get("poster_path")
+                        else None
+                    ),
+                    "vote_average": item.get("vote_average"),
+                    "popularity": item.get("popularity"),
+                })
+
+            return results
+
+    @cached("tmdb:genres", ttl=CACHE_TTL_LONG)
+    async def get_genre_list(
+        self,
+        media_type: str = "movie",
+        language: str = "fr-FR",
+    ) -> list[dict[str, Any]]:
+        """Get the list of official genres for movies or TV shows.
+
+        Args:
+            media_type: "movie" or "tv"
+            language: Language for genre names
+
+        Returns:
+            List of genres with id and name
+        """
+        if not self.api_key:
+            return []
+
+        params = self._add_api_key({
+            "language": language,
+        })
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            response = await client.get(
+                f"{TMDB_BASE_URL}/genre/{media_type}/list",
+                params=params,
+                headers=self.headers,
+            )
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            return data.get("genres", [])
+
+    @cached("tmdb:trailer", ttl=CACHE_TTL_MEDIUM)
+    async def get_trailer(
+        self,
+        tmdb_id: int,
+        media_type: str = "movie",
+        language: str = "fr-FR",
+    ) -> dict[str, Any] | None:
+        """Get the trailer for a movie or TV show.
+
+        Args:
+            tmdb_id: TMDB ID of the media
+            media_type: "movie" or "tv"
+            language: Language for results (will also try English as fallback)
+
+        Returns:
+            Trailer info with key (YouTube video ID) and site, or None if not found
+        """
+        if not self.api_key:
+            return None
+
+        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+            # Try requested language first
+            params = self._add_api_key({
+                "language": language,
+            })
+            response = await client.get(
+                f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}/videos",
+                params=params,
+                headers=self.headers,
+            )
+
+            trailers = []
+            if response.status_code == 200:
+                data = response.json()
+                trailers = data.get("results", [])
+
+            # If no results in requested language, try English
+            if not trailers and language != "en-US":
+                params = self._add_api_key({
+                    "language": "en-US",
+                })
+                response = await client.get(
+                    f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}/videos",
+                    params=params,
+                    headers=self.headers,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    trailers = data.get("results", [])
+
+            if not trailers:
+                return None
+
+            # Prioritize: Official Trailer > Trailer > Teaser (YouTube only)
+            youtube_trailers = [t for t in trailers if t.get("site") == "YouTube"]
+
+            for video_type in ["Trailer", "Teaser", "Clip"]:
+                for trailer in youtube_trailers:
+                    if trailer.get("type") == video_type:
+                        if video_type == "Trailer" and trailer.get("official", False):
+                            return {
+                                "key": trailer["key"],
+                                "site": trailer["site"],
+                                "name": trailer.get("name"),
+                                "type": trailer.get("type"),
+                            }
+
+            # If no official trailer, return first trailer/teaser
+            for video_type in ["Trailer", "Teaser"]:
+                for trailer in youtube_trailers:
+                    if trailer.get("type") == video_type:
+                        return {
+                            "key": trailer["key"],
+                            "site": trailer["site"],
+                            "name": trailer.get("name"),
+                            "type": trailer.get("type"),
+                        }
+
+            # Return first YouTube video as fallback
+            if youtube_trailers:
+                return {
+                    "key": youtube_trailers[0]["key"],
+                    "site": youtube_trailers[0]["site"],
+                    "name": youtube_trailers[0].get("name"),
+                    "type": youtube_trailers[0].get("type"),
+                }
+
+            return None
 
 
 # Common streaming providers with their TMDB IDs for quick reference

@@ -318,6 +318,9 @@ class LetterboxdSyncService:
                 slug = self._extract_slug(film.letterboxd_uri)
                 if slug and slug not in films:
                     films[slug] = film
+                    # Log first few films with ratings for debugging
+                    if len(films) <= 5:
+                        logger.info(f"Diary film: {film.title} - rating={film.rating}")
 
             if progress_callback:
                 progress_callback(len(films), None)
@@ -325,7 +328,9 @@ class LetterboxdSyncService:
             page += 1
 
         diary_count = len(films)
-        logger.info(f"Found {diary_count} films from diary")
+        # Count films with ratings
+        rated_count = sum(1 for f in films.values() if f.rating)
+        logger.info(f"Found {diary_count} films from diary ({rated_count} with ratings)")
 
         # 2. Then scrape ratings page for films without diary entries
         page = 1
@@ -412,15 +417,20 @@ class LetterboxdSyncService:
                 rating = None
                 rating_td = row.select_one("td.col-rating")
                 if rating_td:
-                    # Rating is stored in input value (0-10 scale)
-                    rating_input = rating_td.select_one("input.rateit-field")
-                    if rating_input:
-                        try:
-                            rating_value = int(rating_input.get("value", 0))
-                            if rating_value > 0:
-                                rating = rating_value / 2.0  # Convert to 0.5-5.0 scale
-                        except (ValueError, TypeError):
-                            pass
+                    # Try span.rating with star characters (★ and ½)
+                    rating_span = rating_td.select_one("span.rating")
+                    if rating_span:
+                        rating = self._parse_star_rating(rating_span.get_text(strip=True))
+                    else:
+                        # Fallback: try input.rateit-field (legacy format)
+                        rating_input = rating_td.select_one("input.rateit-field")
+                        if rating_input:
+                            try:
+                                rating_value = int(rating_input.get("value", 0))
+                                if rating_value > 0:
+                                    rating = rating_value / 2.0  # Convert to 0.5-5.0 scale
+                            except (ValueError, TypeError):
+                                pass
 
                 # Watch date from col-daydate and col-monthdate
                 watched_date = None

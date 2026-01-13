@@ -4,10 +4,12 @@ This service uses JustWatch's internal GraphQL API to fetch direct streaming URL
 Note: This is an unofficial API that may change without notice.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import httpx
+
+from src.utils.cache import CACHE_TTL_LONG, cache, make_cache_key
 
 JUSTWATCH_GRAPHQL_URL = "https://apis.justwatch.com/graphql"
 
@@ -117,28 +119,6 @@ class JustWatchService:
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
-        # Simple in-memory cache with TTL
-        self._cache: dict[str, tuple[Any, datetime]] = {}
-        self._cache_ttl = timedelta(hours=24)
-        # Cache for TMDB ID -> JustWatch path mapping
-        self._path_cache: dict[str, str] = {}
-
-    def _get_cache_key(self, tmdb_id: int, media_type: str, country: str) -> str:
-        """Generate cache key for a request."""
-        return f"jw:{tmdb_id}:{media_type}:{country}"
-
-    def _get_from_cache(self, key: str) -> Any | None:
-        """Get value from cache if not expired."""
-        if key in self._cache:
-            value, timestamp = self._cache[key]
-            if datetime.now() - timestamp < self._cache_ttl:
-                return value
-            del self._cache[key]
-        return None
-
-    def _set_cache(self, key: str, value: Any) -> None:
-        """Set value in cache."""
-        self._cache[key] = (value, datetime.now())
 
     async def get_streaming_links(
         self,
@@ -160,15 +140,17 @@ class JustWatchService:
         Returns:
             Dict with provider_id -> deep_link mapping, or None if not found
         """
-        cache_key = self._get_cache_key(tmdb_id, media_type, country)
-        cached = self._get_from_cache(cache_key)
+        cache_key = make_cache_key("justwatch", tmdb_id, media_type, country=country)
+
+        # Try Redis cache first
+        cached = await cache.get(cache_key)
         if cached is not None:
             return cached
 
         try:
             result = await self._fetch_offers(tmdb_id, media_type, country, title, year)
             if result:
-                self._set_cache(cache_key, result)
+                await cache.set(cache_key, result, ttl=CACHE_TTL_LONG)
             return result
         except Exception as e:
             print(f"JustWatch API error: {e}")
@@ -186,10 +168,11 @@ class JustWatchService:
         locale_info = COUNTRY_LOCALES.get(country, ("en_US", "en"))
         language = locale_info[1]
 
-        # Check path cache first
-        path_cache_key = f"{tmdb_id}:{media_type}:{country}"
-        if path_cache_key in self._path_cache:
-            return self._path_cache[path_cache_key]
+        # Check Redis cache for path first
+        path_cache_key = make_cache_key("justwatch:path", tmdb_id, media_type, country=country)
+        cached_path = await cache.get(path_cache_key)
+        if cached_path:
+            return cached_path
 
         # Build search filter
         object_type = "MOVIE" if media_type == "movie" else "SHOW"
@@ -228,7 +211,7 @@ class JustWatchService:
                 if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
                     full_path = content.get("fullPath")
                     if full_path:
-                        self._path_cache[path_cache_key] = full_path
+                        await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
                         return full_path
 
             # Fallback: search by title if provided
@@ -261,14 +244,14 @@ class JustWatchService:
                         if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
                             full_path = content.get("fullPath")
                             if full_path:
-                                self._path_cache[path_cache_key] = full_path
+                                await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
                                 return full_path
 
                         # Match by year if TMDB ID not available
                         if year and content.get("originalReleaseYear") == year:
                             full_path = content.get("fullPath")
                             if full_path:
-                                self._path_cache[path_cache_key] = full_path
+                                await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
                                 return full_path
 
             return None

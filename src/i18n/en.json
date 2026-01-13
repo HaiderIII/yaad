@@ -10,7 +10,14 @@
     "stats": "Stats",
     "settings": "Settings",
     "logout": "Logout",
-    "search": "Search..."
+    "search": "Search...",
+    "quick_actions": "Quick actions",
+    "add_media": "Add media",
+    "browse_media": "Browse all media",
+    "your_activity": "Your activity",
+    "to_search": "to search",
+    "to_close": "to close",
+    "recommendations": "For You"
   },
   "auth": {
     "login": "Login",
@@ -40,7 +47,8 @@
     "jellyfin_connect": "Connect Jellyfin to see your watch progress here.",
     "recently_added": "Recently Added",
     "view_all": "View all",
-    "add_first": "Add your first media to see it here."
+    "add_first": "Add your first media to see it here.",
+    "no_media_yet": "No media added yet."
   },
   "media": {
     "type": {
@@ -65,7 +73,9 @@
       "delete": "Delete",
       "watch": "Watch",
       "read": "Read"
-    }
+    },
+    "owned": "Owned",
+    "direct_link": "Direct link available"
   },
   "catalogue": {
     "title": "Catalogue",
@@ -87,10 +97,15 @@
     "medias_found": "{count} medias found",
     "page_of": "Page {page} of {pages}",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "results_for": "results for",
+    "result_for": "result for",
+    "add_new_media": "Add new media"
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Manage your account and preferences.",
+    "profile": "Profile",
     "language": "Language",
     "language_description": "Choose your preferred language",
     "english": "English",
@@ -99,8 +114,82 @@
     "country_description": "Used for streaming availability",
     "streaming_platforms": "Streaming Platforms",
     "streaming_description": "Select the platforms you have access to",
+    "my_streaming_services": "My Streaming Services",
     "save_changes": "Save Changes",
-    "saved": "Settings saved successfully"
+    "saved": "Settings saved successfully",
+    "saving": "Saving...",
+    "error_saving": "Error saving",
+    "connected_accounts": "Connected Accounts",
+    "connected": "Connected",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "integrations": "Integrations",
+    "coming_soon": "Coming soon",
+    "danger_zone": "Danger Zone",
+    "delete_account": "Delete Account",
+    "delete_account_description": "Permanently delete your account and all data"
+  },
+  "letterboxd": {
+    "title": "Letterboxd",
+    "description": "Sync your film diary automatically",
+    "username_label": "Letterboxd Username",
+    "username_placeholder": "your_username",
+    "connect": "Connect",
+    "checking": "Checking...",
+    "connected_as": "Connected as",
+    "quick_sync": "Quick Sync",
+    "quick_sync_description": "Import your ~50 most recent diary entries via RSS feed. Fast and reliable.",
+    "sync_recent": "Sync Recent",
+    "full_import": "Full Import",
+    "full_import_description": "Import your entire Letterboxd library. Takes longer but gets everything.",
+    "import_all": "Import All",
+    "import_watchlist": "Import Watchlist",
+    "import_watchlist_description": "Import your Letterboxd watchlist as \"To Watch\" items.",
+    "importing_films": "Importing films...",
+    "fetching_films": "Fetching films from Letterboxd...",
+    "fetching_watchlist": "Fetching watchlist from Letterboxd...",
+    "syncing": "Syncing...",
+    "importing": "Importing...",
+    "imported": "imported",
+    "skipped": "skipped",
+    "failed": "failed",
+    "films_failed": "film(s) failed to import",
+    "found_films": "Found {total} films. {imported} imported, {skipped} skipped, {failed} failed.",
+    "csv_import": "Or import from CSV export",
+    "csv_instructions": "Export your data from Letterboxd Settings, then upload diary.csv or watched.csv.",
+    "drop_csv": "Drop CSV file here or click to browse"
+  },
+  "kobo": {
+    "title": "Kobo",
+    "description": "Sync your reading progress from Kobo",
+    "connect_description": "Connect your Kobo account to sync reading progress for your ebooks.",
+    "connect_account": "Connect Kobo Account",
+    "starting": "Starting...",
+    "step1_title": "Step 1: Enter Code on Kobo",
+    "step1_description": "Go to kobo.com/activate and enter this code:",
+    "open_activation": "Open Kobo Activation",
+    "step2_title": "Step 2: Waiting for Authorization",
+    "step2_waiting": "Click \"Open Kobo Activation\" above to start. We'll automatically detect when you've authorized.",
+    "waiting_authorize": "Waiting for you to authorize on Kobo...",
+    "cancel": "Cancel",
+    "connected_to": "Connected to Kobo",
+    "sync_progress": "Sync Reading Progress",
+    "sync_progress_description": "Update your Yaad library with reading progress from Kobo. Matches books by ISBN or title.",
+    "sync_now": "Sync Now"
+  },
+  "notion": {
+    "title": "Notion Import",
+    "description": "Import your media library from Notion CSV export",
+    "supported_types": "Supported types from Notion:",
+    "drop_csv": "Drop Notion CSV file here or click to browse",
+    "start_import": "Start Import",
+    "importing_media": "Importing media...",
+    "import_complete": "Import complete!",
+    "items_failed": "item(s) failed to import"
+  },
+  "jellyfin": {
+    "title": "Jellyfin",
+    "description": "Sync watch history from your Jellyfin server"
   },
   "common": {
     "save": "Save",
@@ -109,6 +198,13 @@
     "confirm": "Confirm",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "import": "Import",
+    "export": "Export",
+    "sync": "Sync",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "network_error": "Network error. Please try again.",
+    "connection_lost": "Connection lost. Please try again."
   }
 }

@@ -239,3 +239,17 @@ class MediaListRead(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class CursorPaginatedMedia(BaseModel):
+    """Media list schema with cursor-based pagination.
+
+    Cursor pagination is more efficient for large datasets and provides
+    stable results when data is being modified.
+    """
+
+    items: list[MediaRead]
+    next_cursor: str | None = None
+    prev_cursor: str | None = None
+    has_more: bool = False
+    limit: int

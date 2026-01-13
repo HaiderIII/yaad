@@ -106,8 +106,73 @@ function initLazyImages() {
 // Re-initialize lazy images after HTMX swaps
 document.body.addEventListener('htmx:afterSwap', initLazyImages);
 
+// Catalogue filter persistence
+const CatalogueFilters = {
+    STORAGE_KEY: 'yaad_catalogue_url',
+
+    // Save current catalogue URL - called automatically when on catalogue page
+    save() {
+        if (window.location.pathname === '/catalogue') {
+            // Clean URL: remove partial and grid_only params (used by HTMX)
+            const url = new URL(window.location.href);
+            url.searchParams.delete('partial');
+            url.searchParams.delete('grid_only');
+            sessionStorage.setItem(this.STORAGE_KEY, url.toString());
+        }
+    },
+
+    // Get saved catalogue URL (cleaned)
+    get() {
+        const saved = sessionStorage.getItem(this.STORAGE_KEY);
+        if (!saved) return '/catalogue';
+
+        // Double-check: remove partial param if somehow present
+        try {
+            const url = new URL(saved);
+            url.searchParams.delete('partial');
+            url.searchParams.delete('grid_only');
+            return url.toString();
+        } catch {
+            return '/catalogue';
+        }
+    },
+
+    // Clear saved filters (for reset button)
+    clear() {
+        sessionStorage.removeItem(this.STORAGE_KEY);
+    },
+
+    // Initialize: save URL if on catalogue page, and clean any existing bad URLs
+    init() {
+        // Clean up any existing bad URL in storage (with partial=1)
+        const saved = sessionStorage.getItem(this.STORAGE_KEY);
+        if (saved && saved.includes('partial=')) {
+            sessionStorage.removeItem(this.STORAGE_KEY);
+        }
+        this.save();
+    }
+};
+
+// Global function to reset catalogue filters (called from button onclick)
+function resetCatalogueFilters() {
+    CatalogueFilters.clear();
+    // Navigate to clean catalogue URL
+    window.location.href = '/catalogue';
+}
+
+// Save catalogue URL after HTMX updates (when filters change)
+document.body.addEventListener('htmx:pushedIntoHistory', () => {
+    CatalogueFilters.save();
+});
+
+document.body.addEventListener('htmx:afterSwap', () => {
+    // Also save after swap in case URL changed
+    CatalogueFilters.save();
+});
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Yaad initialized');
     initLazyImages();
+    CatalogueFilters.init();
 });

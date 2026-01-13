@@ -123,6 +123,7 @@ class LetterboxdImporter:
         entries: list[LetterboxdEntry],
         skip_existing: bool = True,
         fetch_metadata: bool = True,
+        force_update: bool = False,
     ) -> ImportResult:
         """Import parsed entries into the database.
 
@@ -132,6 +133,7 @@ class LetterboxdImporter:
             entries: List of parsed Letterboxd entries
             skip_existing: Skip films that already exist (by title+year or external_id)
             fetch_metadata: Fetch full metadata from TMDB
+            force_update: Force update ratings even if local rating exists
 
         Returns:
             Import result with counts
@@ -153,25 +155,44 @@ class LetterboxdImporter:
                     continue
 
                 # Check if already exists (by title+year OR by external_id)
-                if skip_existing:
-                    conditions = [
-                        (Media.title.ilike(entry.name))
-                        & (Media.year == entry.year if entry.year else True),
-                    ]
-                    # Also check by external_id if we have one
-                    if media_data.external_id:
-                        conditions.append(Media.external_id == media_data.external_id)
+                conditions = [
+                    (Media.title.ilike(entry.name))
+                    & (Media.year == entry.year if entry.year else True),
+                ]
+                # Also check by external_id if we have one
+                if media_data.external_id:
+                    conditions.append(Media.external_id == media_data.external_id)
 
-                    existing = await db.execute(
-                        select(Media).where(
-                            Media.user_id == user_id,
-                            Media.type == MediaType.FILM,
-                            or_(*conditions),
-                        )
+                existing_result = await db.execute(
+                    select(Media).where(
+                        Media.user_id == user_id,
+                        Media.type == MediaType.FILM,
+                        or_(*conditions),
                     )
-                    if existing.scalar_one_or_none():
+                )
+                existing_media = existing_result.scalar_one_or_none()
+
+                if existing_media:
+                    # Film exists - update rating if Letterboxd has one
+                    logger.info(
+                        f"Film exists: {entry.name} - entry.rating={entry.rating}, "
+                        f"existing.rating={existing_media.rating}"
+                    )
+                    # Update if: force_update OR (has letterboxd rating AND no local rating)
+                    should_update = entry.rating and (force_update or not existing_media.rating)
+                    if should_update:
+                        existing_media.rating = entry.rating
+                        existing_media.status = MediaStatus.FINISHED
+                        if entry.watched_date and (force_update or not existing_media.consumed_at):
+                            existing_media.consumed_at = entry.watched_date
+                        await db.flush()
+                        result.imported += 1  # Count as imported (updated)
+                        logger.info(f"Updated rating for {entry.name}: {entry.rating}")
+                    elif skip_existing:
                         result.skipped += 1
-                        continue
+                    else:
+                        result.skipped += 1
+                    continue
 
                 # Create media entry
                 await create_media(
@@ -213,6 +234,7 @@ class LetterboxdImporter:
         entry: LetterboxdEntry,
         skip_existing: bool = True,
         fetch_metadata: bool = True,
+        force_update: bool = False,
     ) -> tuple[str, str | None]:
         """Import a single entry into the database.
 
@@ -222,9 +244,10 @@ class LetterboxdImporter:
             entry: Single Letterboxd entry
             skip_existing: Skip if already exists
             fetch_metadata: Fetch metadata from TMDB
+            force_update: Force update ratings even if local rating exists
 
         Returns:
-            Tuple of (status, error_message) where status is 'imported', 'skipped', or 'failed'
+            Tuple of (status, error_message) where status is 'imported', 'skipped', 'updated', or 'failed'
         """
         from sqlalchemy import or_
         from sqlalchemy.exc import IntegrityError
@@ -238,23 +261,41 @@ class LetterboxdImporter:
                 return ("failed", f"Could not find on TMDB: {entry.name} ({entry.year})")
 
             # Check if already exists (by title+year OR by external_id)
-            if skip_existing:
-                conditions = [
-                    (Media.title.ilike(entry.name))
-                    & (Media.year == entry.year if entry.year else True),
-                ]
-                # Also check by external_id if we have one
-                if media_data.external_id:
-                    conditions.append(Media.external_id == media_data.external_id)
+            conditions = [
+                (Media.title.ilike(entry.name))
+                & (Media.year == entry.year if entry.year else True),
+            ]
+            # Also check by external_id if we have one
+            if media_data.external_id:
+                conditions.append(Media.external_id == media_data.external_id)
 
-                existing = await db.execute(
-                    select(Media).where(
-                        Media.user_id == user_id,
-                        Media.type == MediaType.FILM,
-                        or_(*conditions),
-                    )
+            existing_result = await db.execute(
+                select(Media).where(
+                    Media.user_id == user_id,
+                    Media.type == MediaType.FILM,
+                    or_(*conditions),
                 )
-                if existing.scalar_one_or_none():
+            )
+            existing_media = existing_result.scalar_one_or_none()
+
+            if existing_media:
+                # Film exists - update rating if Letterboxd has one
+                logger.info(
+                    f"[single] Film exists: {entry.name} - entry.rating={entry.rating}, "
+                    f"existing.rating={existing_media.rating}, force_update={force_update}"
+                )
+                # Update if: force_update OR (has letterboxd rating AND no local rating)
+                should_update = entry.rating and (force_update or not existing_media.rating)
+                if should_update:
+                    existing_media.rating = entry.rating
+                    existing_media.status = MediaStatus.FINISHED
+                    if entry.watched_date and (force_update or not existing_media.consumed_at):
+                        existing_media.consumed_at = entry.watched_date
+                    await db.flush()
+                    return ("updated", None)
+                elif skip_existing:
+                    return ("skipped", None)
+                else:
                     return ("skipped", None)
 
             # Create media entry

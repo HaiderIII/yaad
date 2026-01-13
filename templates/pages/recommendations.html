@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}Recommendations - Yaad{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto" x-data="recommendationsPage()">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">For You</h1>
+                <p class="text-slate-400 text-sm">Personalized suggestions based on your taste</p>
+            </div>
+        </div>
+        <button
+            @click="generateRecommendations()"
+            :disabled="generating"
+            class="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors border border-slate-700"
+        >
+            <svg :class="generating && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span class="hidden sm:inline" x-text="generating ? 'Generating...' : 'Refresh'"></span>
+        </button>
+    </div>
+
+    <!-- Elegant Generation Progress -->
+    <div x-show="generating"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform -translate-y-2"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="mb-8">
+        <div class="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-sm shadow-xl">
+            <!-- Header with animated icon -->
+            <div class="flex items-center gap-4 mb-5">
+                <div class="relative">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <!-- Pulsing ring -->
+                    <div class="absolute inset-0 rounded-xl bg-purple-500/30 animate-ping"></div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-white">Generating Recommendations</h3>
+                    <p class="text-sm text-slate-400" x-text="generationStatus"></p>
+                </div>
+                <div class="ml-auto">
+                    <span class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400" x-text="Math.round(generationProgress) + '%'"></span>
+                </div>
+            </div>
+
+            <!-- Progress bar with glow -->
+            <div class="relative">
+                <div class="h-3 bg-slate-700/50 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full transition-all duration-500 ease-out relative"
+                         :style="'width: ' + generationProgress + '%'"
+                         style="background-size: 200% 100%; animation: shimmer 2s infinite linear;">
+                    </div>
+                </div>
+                <!-- Glow effect under progress -->
+                <div class="absolute inset-0 blur-xl opacity-50 -z-10">
+                    <div class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
+                         :style="'width: ' + generationProgress + '%'"></div>
+                </div>
+            </div>
+
+            <!-- Generation steps -->
+            <div class="flex justify-between mt-5 text-xs">
+                <div class="flex items-center gap-1.5" :class="generationProgress >= 10 ? 'text-emerald-400' : 'text-slate-500'">
+                    <svg class="w-4 h-4" :class="generationProgress >= 10 && generationProgress < 30 && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <span>Profile</span>
+                </div>
+                <div class="flex items-center gap-1.5" :class="generationProgress >= 30 ? 'text-emerald-400' : 'text-slate-500'">
+                    <svg class="w-4 h-4" :class="generationProgress >= 30 && generationProgress < 50 && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4"/>
+                    </svg>
+                    <span>Films</span>
+                </div>
+                <div class="flex items-center gap-1.5" :class="generationProgress >= 50 ? 'text-emerald-400' : 'text-slate-500'">
+                    <svg class="w-4 h-4" :class="generationProgress >= 50 && generationProgress < 70 && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span>Series</span>
+                </div>
+                <div class="flex items-center gap-1.5" :class="generationProgress >= 70 ? 'text-emerald-400' : 'text-slate-500'">
+                    <svg class="w-4 h-4" :class="generationProgress >= 70 && generationProgress < 90 && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    <span>Books</span>
+                </div>
+                <div class="flex items-center gap-1.5" :class="generationProgress >= 90 ? 'text-emerald-400' : 'text-slate-500'">
+                    <svg class="w-4 h-4" :class="generationProgress >= 90 && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <span>Done</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+
+    <!-- Category Tabs -->
+    <div class="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+        <button @click="activeTab = 'all'"
+                :class="activeTab === 'all' ? 'bg-purple-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'"
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap">
+            All
+        </button>
+        <button @click="activeTab = 'films'"
+                :class="activeTab === 'films' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'"
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+            </svg>
+            Films
+        </button>
+        <button @click="activeTab = 'series'"
+                :class="activeTab === 'series' ? 'bg-cyan-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'"
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            Series
+        </button>
+        <button @click="activeTab = 'books'"
+                :class="activeTab === 'books' ? 'bg-emerald-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'"
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Books
+        </button>
+        <button @click="activeTab = 'youtube'"
+                :class="activeTab === 'youtube' ? 'bg-red-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'"
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            YouTube
+        </button>
+    </div>
+
+    {% set has_any_films = recommendations_by_genre.films and recommendations_by_genre.films.keys()|list|length > 0 %}
+    {% set has_any_series = recommendations_by_genre.series and recommendations_by_genre.series.keys()|list|length > 0 %}
+    {% set has_any_books = recommendations_by_genre.books and recommendations_by_genre.books.keys()|list|length > 0 %}
+    {% set has_any_youtube = recommendations_by_genre.youtube and recommendations_by_genre.youtube.keys()|list|length > 0 %}
+    {% set has_any = has_any_films or has_any_series or has_any_books or has_any_youtube %}
+
+    {% if not has_any %}
+    <!-- Empty State -->
+    <div class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-white mb-2">No recommendations yet</h2>
+        <p class="text-slate-400 max-w-md mb-6">
+            Add and rate some media to get personalized recommendations. The more you track, the better suggestions you'll receive.
+        </p>
+        <button
+            @click="generateRecommendations()"
+            class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-colors"
+        >
+            Generate Recommendations
+        </button>
+    </div>
+    {% else %}
+
+    <!-- Films Sections by Genre -->
+    <div x-show="activeTab === 'all' || activeTab === 'films'" x-transition>
+        {% if has_any_films %}
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-white">Films</h2>
+            </div>
+            {% for genre, recs in recommendations_by_genre.films.items() %}
+            {% include "partials/recommendation_genre_slider.html" with context %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Series Sections by Genre -->
+    <div x-show="activeTab === 'all' || activeTab === 'series'" x-transition>
+        {% if has_any_series %}
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-cyan-500/30 to-teal-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-white">Series</h2>
+            </div>
+            {% for genre, recs in recommendations_by_genre.series.items() %}
+            {% include "partials/recommendation_genre_slider.html" with context %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Books Sections by Genre -->
+    <div x-show="activeTab === 'all' || activeTab === 'books'" x-transition>
+        {% if has_any_books %}
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-emerald-500/30 to-green-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-white">Books</h2>
+            </div>
+            {% for genre, recs in recommendations_by_genre.books.items() %}
+            {% include "partials/recommendation_genre_slider.html" with context %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- YouTube Sections by Genre -->
+    <div x-show="activeTab === 'all' || activeTab === 'youtube'" x-transition>
+        {% if has_any_youtube %}
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-red-500/30 to-rose-500/30 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-white">YouTube</h2>
+            </div>
+            {% for genre, recs in recommendations_by_genre.youtube.items() %}
+            {% include "partials/recommendation_genre_slider.html" with context %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% endif %}
+
+    <!-- Detail Modal - teleported to body for proper positioning -->
+    <template x-teleport="body">
+        <div x-show="showModal"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             @keydown.escape.window="showModal = false"
+             @click.self="showModal = false"
+             class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+             style="display: none;">
+
+            <div x-show="showModal"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 @click.stop
+                 class="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl my-8">
+
+            <!-- Close Button -->
+            <button @click="showModal = false"
+                    class="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+
+            <!-- Loading State -->
+            <div x-show="modalLoading" class="flex items-center justify-center h-96">
+                <svg class="w-8 h-8 text-purple-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+
+            <!-- Content -->
+            <div x-show="!modalLoading && modalData" class="overflow-y-auto max-h-[90vh]">
+                <!-- Backdrop Area with Play Button -->
+                <div class="relative aspect-video bg-slate-800">
+                    <!-- Backdrop image (always shown as base) -->
+                    <div class="absolute inset-0">
+                        <img x-show="modalData && (modalData.backdrop_url || modalData.cover_url)"
+                             :src="modalData ? (modalData.backdrop_url || modalData.cover_url) : ''"
+                             class="w-full h-full object-cover"
+                             :class="modalData && modalData.backdrop_url ? 'opacity-60' : 'opacity-40 blur-sm'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
+                    </div>
+
+                    <!-- Watch Trailer Button (if trailer available) -->
+                    <a x-show="modalData && modalData.trailer_key && modalData.trailer_site === 'YouTube'"
+                       :href="'https://www.youtube.com/watch?v=' + (modalData ? modalData.trailer_key : '')"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="absolute inset-0 flex items-center justify-center group/play">
+                        <div class="w-20 h-20 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center shadow-2xl transform transition-all duration-300 group-hover/play:scale-110">
+                            <svg class="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <span class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full opacity-0 group-hover/play:opacity-100 transition-opacity">
+                            Watch Trailer on YouTube
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Info Section -->
+                <div class="p-6 -mt-20 relative z-10">
+                    <div class="flex gap-6">
+                        <!-- Poster -->
+                        <div class="hidden sm:block flex-shrink-0 w-32 lg:w-40">
+                            <img x-show="modalData && modalData.cover_url"
+                                 :src="modalData ? modalData.cover_url : ''"
+                                 class="w-full aspect-[2/3] object-cover rounded-xl shadow-2xl">
+                        </div>
+
+                        <!-- Details -->
+                        <div class="flex-1 min-w-0">
+                            <!-- Title -->
+                            <h2 class="text-2xl lg:text-3xl font-bold text-white mb-2" x-text="modalData ? modalData.title : ''"></h2>
+
+                            <!-- Original Title -->
+                            <p x-show="modalData && modalData.original_title && modalData.original_title !== modalData.title"
+                               class="text-slate-400 text-sm mb-3" x-text="modalData ? modalData.original_title : ''"></p>
+
+                            <!-- Meta info -->
+                            <div class="flex flex-wrap items-center gap-3 mb-4 text-sm">
+                                <span x-show="modalData && modalData.year" class="text-slate-400" x-text="modalData ? modalData.year : ''"></span>
+                                <span x-show="modalData && modalData.runtime" class="text-slate-400">
+                                    <span x-text="modalData ? Math.floor(modalData.runtime / 60) + 'h ' + (modalData.runtime % 60) + 'min' : ''"></span>
+                                </span>
+                                <!-- TMDB Rating -->
+                                <div x-show="modalData && modalData.tmdb_rating" class="flex items-center gap-1 px-2 py-1 bg-yellow-500/20 rounded-lg">
+                                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                    <span class="text-yellow-400 font-medium" x-text="modalData ? modalData.tmdb_rating.toFixed(1) : ''"></span>
+                                    <span class="text-slate-500 text-xs" x-text="modalData && modalData.tmdb_vote_count ? '(' + modalData.tmdb_vote_count.toLocaleString() + ')' : ''"></span>
+                                </div>
+                                <!-- Match Score -->
+                                <div class="flex items-center gap-1 px-2 py-1 bg-purple-500/20 rounded-lg">
+                                    <span class="text-purple-400 font-medium" x-text="modalData ? Math.round(modalData.score * 100) + '% match' : ''"></span>
+                                </div>
+                            </div>
+
+                            <!-- Tagline -->
+                            <p x-show="modalData && modalData.tagline"
+                               class="text-slate-300 italic mb-4" x-text="modalData ? modalData.tagline : ''"></p>
+
+                            <!-- Genres -->
+                            <div x-show="modalData && modalData.genres && modalData.genres.length > 0" class="flex flex-wrap gap-2 mb-4">
+                                <template x-for="genre in (modalData ? modalData.genres : [])" :key="genre">
+                                    <span class="px-3 py-1 bg-slate-800 text-slate-300 text-xs rounded-full" x-text="genre"></span>
+                                </template>
+                            </div>
+
+                            <!-- Description -->
+                            <p class="text-slate-300 text-sm leading-relaxed mb-4" x-text="modalData ? modalData.description : ''"></p>
+
+                            <!-- Directors/Authors -->
+                            <div x-show="modalData && modalData.directors && modalData.directors.length > 0" class="mb-4">
+                                <span class="text-slate-500 text-sm" x-text="modalData && modalData.media_type === 'book' ? 'Authors: ' : 'Directors: '"></span>
+                                <span class="text-slate-300 text-sm" x-text="modalData ? modalData.directors.join(', ') : ''"></span>
+                            </div>
+
+                            <!-- Cast -->
+                            <div x-show="modalData && modalData.cast && modalData.cast.length > 0" class="mb-6">
+                                <h4 class="text-slate-500 text-sm mb-2">Cast</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-for="actor in (modalData ? modalData.cast.slice(0, 6) : [])" :key="actor.name">
+                                        <div class="flex items-center gap-2 px-2 py-1 bg-slate-800/50 rounded-lg">
+                                            <img x-show="actor.profile_path"
+                                                 :src="'https://image.tmdb.org/t/p/w45' + actor.profile_path"
+                                                 class="w-6 h-6 rounded-full object-cover">
+                                            <span class="text-slate-300 text-xs" x-text="actor.name"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex gap-3">
+                                <button @click="addToLibrary(modalData.id)"
+                                        :disabled="modalActionLoading"
+                                        class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-medium rounded-xl transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    Add to Library
+                                </button>
+                                <button @click="dismissRec(modalData.id)"
+                                        :disabled="modalActionLoading"
+                                        class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">Not Interested</span>
+                                </button>
+                                <a x-show="modalData && modalData.external_url"
+                                   :href="modalData ? modalData.external_url : '#'"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+
+<script>
+function recommendationsPage() {
+    return {
+        activeTab: 'all',
+        showModal: false,
+        modalLoading: false,
+        modalData: null,
+        modalActionLoading: false,
+        generating: false,
+        generationProgress: 0,
+        generationStatus: 'Initializing...',
+
+        async openModal(recId) {
+            this.showModal = true;
+            this.modalLoading = true;
+            this.modalData = null;
+
+            try {
+                const response = await fetch(`/api/recommendations/${recId}/details`);
+                if (response.ok) {
+                    this.modalData = await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to fetch details:', error);
+            } finally {
+                this.modalLoading = false;
+            }
+        },
+
+        async addToLibrary(recId) {
+            this.modalActionLoading = true;
+            try {
+                const response = await fetch(`/api/recommendations/${recId}/add`, { method: 'POST' });
+                if (response.ok) {
+                    this.showModal = false;
+                    // Remove the card from DOM
+                    const card = document.querySelector(`[data-rec-id="${recId}"]`);
+                    if (card) card.remove();
+                }
+            } catch (error) {
+                console.error('Failed to add:', error);
+            } finally {
+                this.modalActionLoading = false;
+            }
+        },
+
+        async dismissRec(recId) {
+            this.modalActionLoading = true;
+            try {
+                const response = await fetch(`/api/recommendations/${recId}/dismiss`, { method: 'POST' });
+                if (response.ok) {
+                    this.showModal = false;
+                    // Remove the card from DOM
+                    const card = document.querySelector(`[data-rec-id="${recId}"]`);
+                    if (card) card.remove();
+                }
+            } catch (error) {
+                console.error('Failed to dismiss:', error);
+            } finally {
+                this.modalActionLoading = false;
+            }
+        },
+
+        async generateRecommendations() {
+            this.generating = true;
+            this.generationProgress = 0;
+            this.generationStatus = 'Connecting...';
+
+            try {
+                // Use SSE for real-time progress updates
+                const eventSource = new EventSource('/api/recommendations/generate/stream');
+
+                eventSource.addEventListener('progress', (event) => {
+                    const data = JSON.parse(event.data);
+                    this.generationProgress = data.progress;
+                    this.generationStatus = data.status;
+                });
+
+                eventSource.addEventListener('complete', (event) => {
+                    const data = JSON.parse(event.data);
+                    eventSource.close();
+
+                    if (data.success) {
+                        this.generationProgress = 100;
+                        this.generationStatus = `Done! Generated ${data.total} recommendations`;
+                        setTimeout(() => window.location.reload(), 800);
+                    } else {
+                        this.generating = false;
+                        this.generationStatus = 'Error occurred';
+                    }
+                });
+
+                eventSource.onerror = (error) => {
+                    console.error('SSE error:', error);
+                    eventSource.close();
+                    this.generating = false;
+                    this.generationStatus = 'Connection error';
+                };
+
+            } catch (error) {
+                console.error('Failed to generate:', error);
+                this.generating = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
