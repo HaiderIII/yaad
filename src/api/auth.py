@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -300,13 +301,16 @@ async def google_callback(
 
         # Ensure unique username
         base_username = username
+        max_attempts = 100
         counter = 1
-        while True:
+        while counter <= max_attempts:
             result = await db.execute(select(User).where(User.username == username))
             if not result.scalar_one_or_none():
                 break
             username = f"{base_username}_{counter}"
             counter += 1
+        else:
+            raise HTTPException(status_code=500, detail="Could not generate unique username")
 
         user = User(
             google_id=google_user["id"],
@@ -440,21 +444,24 @@ async def youtube_sync_now(
     }
 
 
+class YouTubePlaylistUpdate(BaseModel):
+    playlist_id: str = ""
+
+
 @router.patch("/youtube/playlist")
 async def update_youtube_playlist(
-    request: Request,
+    data: YouTubePlaylistUpdate,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """Update the YouTube playlist ID for sync."""
-    data = await request.json()
-    playlist_id = data.get("playlist_id", "").strip()
+    playlist_id = data.playlist_id.strip()
 
     # Validate playlist ID format (optional - empty means use Watch Later)
-    if playlist_id and not playlist_id.startswith("PL"):
+    if playlist_id and not any(playlist_id.startswith(p) for p in ("PL", "LL", "WL", "FL", "UU")):
         raise HTTPException(
             status_code=400,
-            detail="Invalid playlist ID. YouTube playlist IDs start with 'PL'",
+            detail="Invalid playlist ID format",
         )
 
     user.youtube_playlist_id = playlist_id or None

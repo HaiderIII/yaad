@@ -61,6 +61,7 @@ class TokenBucket:
         if wait_time > 0:
             logger.debug(f"Rate limited, waiting {wait_time:.2f}s")
             await asyncio.sleep(wait_time)
+            self._refill()
             self.tokens -= tokens
 
 

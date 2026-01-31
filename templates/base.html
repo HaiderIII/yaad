@@ -2,8 +2,8 @@
 <html lang="{{ locale }}" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#4158e8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Yaad">
@@ -12,11 +12,11 @@
     <title>{% block title %}Yaad{% endblock %}</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=2">
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="apple-touch-icon" href="/static/img/icon-192.svg">
+    <link rel="apple-touch-icon" href="/static/img/icon-192.svg?v=2">
 
     <!-- Compiled Tailwind CSS (includes custom.css) -->
     <link rel="stylesheet" href="/static/css/output.css">
@@ -25,11 +25,12 @@
     <style>[x-cloak] { display: none !important; }</style>
 
     <!-- HTMX with preload extension -->
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js"></script>
+    <!-- TODO: Add integrity="sha384-..." SRI hashes for production (generate at srihash.org) -->
+    <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx-ext-preload@2.1.0/preload.js" crossorigin="anonymous"></script>
 
     <!-- Alpine.js -->
-    <script defer src="https://unpkg.com/alpinejs@3.14.7/dist/cdn.min.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.7/dist/cdn.min.js" crossorigin="anonymous"></script>
 
     {% block head %}{% endblock %}
 </head>
@@ -56,7 +57,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js')
+                navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
                     .then((registration) => {
                         console.log('SW registered:', registration.scope);
                     })

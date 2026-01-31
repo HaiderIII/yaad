@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install ruff mypy
+      - name: Lint
+        run: ruff check src/
+      - name: Type check
+        run: mypy src/ --ignore-missing-imports
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ python3-dev
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run tests
+        env:
+          APP_SECRET_KEY: test-secret-key-that-is-at-least-32-characters
+          DATABASE_URL: sqlite+aiosqlite:///test.db
+          REDIS_URL: redis://localhost:6379
+          GITHUB_CLIENT_ID: test
+          GITHUB_CLIENT_SECRET: test
+        run: pytest tests/ -v --tb=short

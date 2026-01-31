@@ -4,12 +4,16 @@ This service uses JustWatch's internal GraphQL API to fetch direct streaming URL
 Note: This is an unofficial API that may change without notice.
 """
 
+import logging
 from datetime import datetime
 from typing import Any
 
 import httpx
 
+logger = logging.getLogger(__name__)
+
 from src.utils.cache import CACHE_TTL_LONG, cache, make_cache_key
+from src.utils.http_client import get_general_client
 
 JUSTWATCH_GRAPHQL_URL = "https://apis.justwatch.com/graphql"
 
@@ -153,7 +157,7 @@ class JustWatchService:
                 await cache.set(cache_key, result, ttl=CACHE_TTL_LONG)
             return result
         except Exception as e:
-            print(f"JustWatch API error: {e}")
+            logger.error(f"JustWatch API error: {e}")
             return None
 
     async def _search_title(
@@ -181,7 +185,42 @@ class JustWatchService:
         if tmdb_id:
             search_filter["searchQuery"] = str(tmdb_id)
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        client = get_general_client()
+        response = await client.post(
+            JUSTWATCH_GRAPHQL_URL,
+            headers=self.headers,
+            json={
+                "query": SEARCH_QUERY,
+                "variables": {
+                    "searchTitlesFilter": search_filter,
+                    "country": country,
+                    "language": language,
+                    "first": 10,
+                },
+            },
+        )
+
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+        edges = data.get("data", {}).get("popularTitles", {}).get("edges", [])
+
+        # Find matching title by TMDB ID
+        for edge in edges:
+            node = edge.get("node", {})
+            content = node.get("content", {})
+            external_ids = content.get("externalIds", {})
+
+            if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
+                full_path = content.get("fullPath")
+                if full_path:
+                    await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
+                    return full_path
+
+        # Fallback: search by title if provided
+        if title:
+            search_filter["searchQuery"] = title
             response = await client.post(
                 JUSTWATCH_GRAPHQL_URL,
                 headers=self.headers,
@@ -196,65 +235,30 @@ class JustWatchService:
                 },
             )
 
-            if response.status_code != 200:
-                return None
+            if response.status_code == 200:
+                data = response.json()
+                edges = data.get("data", {}).get("popularTitles", {}).get("edges", [])
 
-            data = response.json()
-            edges = data.get("data", {}).get("popularTitles", {}).get("edges", [])
+                for edge in edges:
+                    node = edge.get("node", {})
+                    content = node.get("content", {})
+                    external_ids = content.get("externalIds", {})
 
-            # Find matching title by TMDB ID
-            for edge in edges:
-                node = edge.get("node", {})
-                content = node.get("content", {})
-                external_ids = content.get("externalIds", {})
+                    # Match by TMDB ID
+                    if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
+                        full_path = content.get("fullPath")
+                        if full_path:
+                            await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
+                            return full_path
 
-                if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
-                    full_path = content.get("fullPath")
-                    if full_path:
-                        await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
-                        return full_path
+                    # Match by year if TMDB ID not available
+                    if year and content.get("originalReleaseYear") == year:
+                        full_path = content.get("fullPath")
+                        if full_path:
+                            await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
+                            return full_path
 
-            # Fallback: search by title if provided
-            if title:
-                search_filter["searchQuery"] = title
-                response = await client.post(
-                    JUSTWATCH_GRAPHQL_URL,
-                    headers=self.headers,
-                    json={
-                        "query": SEARCH_QUERY,
-                        "variables": {
-                            "searchTitlesFilter": search_filter,
-                            "country": country,
-                            "language": language,
-                            "first": 10,
-                        },
-                    },
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    edges = data.get("data", {}).get("popularTitles", {}).get("edges", [])
-
-                    for edge in edges:
-                        node = edge.get("node", {})
-                        content = node.get("content", {})
-                        external_ids = content.get("externalIds", {})
-
-                        # Match by TMDB ID
-                        if external_ids and str(external_ids.get("tmdbId")) == str(tmdb_id):
-                            full_path = content.get("fullPath")
-                            if full_path:
-                                await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
-                                return full_path
-
-                        # Match by year if TMDB ID not available
-                        if year and content.get("originalReleaseYear") == year:
-                            full_path = content.get("fullPath")
-                            if full_path:
-                                await cache.set(path_cache_key, full_path, ttl=CACHE_TTL_LONG)
-                                return full_path
-
-            return None
+        return None
 
     async def _fetch_offers(
         self,
@@ -271,29 +275,29 @@ class JustWatchService:
         if not full_path:
             return None
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                JUSTWATCH_GRAPHQL_URL,
-                headers=self.headers,
-                json={
-                    "query": OFFERS_BY_PATH_QUERY,
-                    "variables": {
-                        "fullPath": full_path,
-                        "country": country,
-                    },
+        client = get_general_client()
+        response = await client.post(
+            JUSTWATCH_GRAPHQL_URL,
+            headers=self.headers,
+            json={
+                "query": OFFERS_BY_PATH_QUERY,
+                "variables": {
+                    "fullPath": full_path,
+                    "country": country,
                 },
-            )
+            },
+        )
 
-            if response.status_code != 200:
-                return None
+        if response.status_code != 200:
+            return None
 
-            data = response.json()
-            node = data.get("data", {}).get("urlV2", {}).get("node")
+        data = response.json()
+        node = data.get("data", {}).get("urlV2", {}).get("node")
 
-            if not node:
-                return None
+        if not node:
+            return None
 
-            return self._parse_offers(node.get("offers", []))
+        return self._parse_offers(node.get("offers", []))
 
     def _parse_offers(self, offers: list[dict]) -> dict[str, Any]:
         """Parse JustWatch offers into our format."""
@@ -348,76 +352,76 @@ class JustWatchService:
         test_country = "FR"
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    JUSTWATCH_GRAPHQL_URL,
-                    headers=self.headers,
-                    json={
-                        "query": OFFERS_BY_PATH_QUERY,
-                        "variables": {
-                            "fullPath": test_path,
-                            "country": test_country,
-                        },
+            client = get_general_client()
+            response = await client.post(
+                JUSTWATCH_GRAPHQL_URL,
+                headers=self.headers,
+                json={
+                    "query": OFFERS_BY_PATH_QUERY,
+                    "variables": {
+                        "fullPath": test_path,
+                        "country": test_country,
                     },
-                )
+                },
+            )
 
-                if response.status_code != 200:
-                    return {
-                        "status": "error",
-                        "message": f"API returned status {response.status_code}",
-                        "details": {},
-                    }
-
-                data = response.json()
-
-                if "errors" in data:
-                    return {
-                        "status": "error",
-                        "message": "GraphQL errors in response",
-                        "details": {"errors": data["errors"]},
-                    }
-
-                node = data.get("data", {}).get("urlV2", {}).get("node")
-
-                if not node:
-                    return {
-                        "status": "error",
-                        "message": "No data returned for test movie",
-                        "details": {"path": test_path},
-                    }
-
-                offers = node.get("offers", [])
-                if not offers:
-                    return {
-                        "status": "warning",
-                        "message": "API responded but no streaming offers found",
-                        "details": {"path": test_path},
-                    }
-
-                # Verify offer structure
-                sample_offer = offers[0]
-                if not sample_offer.get("standardWebURL"):
-                    return {
-                        "status": "error",
-                        "message": "Offer structure changed - missing standardWebURL",
-                        "details": {"sample_offer": sample_offer},
-                    }
-
-                # Count unique providers
-                providers = set()
-                for offer in offers:
-                    pkg = offer.get("package", {})
-                    if pkg.get("clearName"):
-                        providers.add(pkg["clearName"])
-
+            if response.status_code != 200:
                 return {
-                    "status": "ok",
-                    "message": f"API working - found {len(offers)} offers from {len(providers)} providers",
-                    "details": {
-                        "providers_found": list(providers)[:10],
-                        "sample_url": sample_offer.get("standardWebURL", "")[:80] + "...",
-                    },
+                    "status": "error",
+                    "message": f"API returned status {response.status_code}",
+                    "details": {},
                 }
+
+            data = response.json()
+
+            if "errors" in data:
+                return {
+                    "status": "error",
+                    "message": "GraphQL errors in response",
+                    "details": {"errors": data["errors"]},
+                }
+
+            node = data.get("data", {}).get("urlV2", {}).get("node")
+
+            if not node:
+                return {
+                    "status": "error",
+                    "message": "No data returned for test movie",
+                    "details": {"path": test_path},
+                }
+
+            offers = node.get("offers", [])
+            if not offers:
+                return {
+                    "status": "warning",
+                    "message": "API responded but no streaming offers found",
+                    "details": {"path": test_path},
+                }
+
+            # Verify offer structure
+            sample_offer = offers[0]
+            if not sample_offer.get("standardWebURL"):
+                return {
+                    "status": "error",
+                    "message": "Offer structure changed - missing standardWebURL",
+                    "details": {"sample_offer": sample_offer},
+                }
+
+            # Count unique providers
+            providers = set()
+            for offer in offers:
+                pkg = offer.get("package", {})
+                if pkg.get("clearName"):
+                    providers.add(pkg["clearName"])
+
+            return {
+                "status": "ok",
+                "message": f"API working - found {len(offers)} offers from {len(providers)} providers",
+                "details": {
+                    "providers_found": list(providers)[:10],
+                    "sample_url": sample_offer.get("standardWebURL", "")[:80] + "...",
+                },
+            }
 
         except httpx.TimeoutException:
             return {

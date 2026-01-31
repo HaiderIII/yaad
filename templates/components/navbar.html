@@ -3,8 +3,16 @@
         <div class="flex items-center justify-between h-16">
             <!-- Logo & Brand -->
             <div class="flex items-center space-x-4">
-                <a href="/" class="flex items-center space-x-2">
-                    <span class="text-2xl font-bold text-primary-500">Yaad</span>
+                <a href="/" class="yaad-brand flex items-center gap-3 group">
+                    <!-- Icon mark -->
+                    <div class="yaad-icon relative w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6" viewBox="0 0 512 512" fill="none">
+                            <path fill="white" d="M256 304 C 256 304, 352 160, 368 136 C 379 119, 416 119, 416 160 C 416 180, 320 320, 296 352 L 296 432 C 296 454, 278 472, 256 472 C 234 472, 216 454, 216 432 L 216 352 C 192 320, 96 180, 96 160 C 96 119, 133 119, 144 136 C 160 160, 256 304, 256 304 Z"/>
+                            <circle cx="256" cy="494" r="18" fill="white"/>
+                        </svg>
+                    </div>
+                    <!-- Wordmark -->
+                    <span class="text-[24px] font-black text-white tracking-[-0.02em] leading-none">YAAD</span>
                 </a>
 
                 <!-- Main Navigation (Desktop) -->
@@ -344,6 +352,17 @@
 </div>
 
 <style>
+/* YAAD Brand */
+.yaad-icon {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.yaad-brand:hover .yaad-icon {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
 /* Search Modal - Netflix/Canal+ style full screen overlay */
 .search-modal-overlay {
     position: fixed;
@@ -568,9 +587,15 @@ function searchModal() {
         },
 
         highlightMatch(text, query) {
-            if (!query || query.length < 2) return text;
+            if (!query || query.length < 2) return this.escapeHtml(text);
+            const escaped = this.escapeHtml(text);
             const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            return text.replace(regex, '<span class="text-primary-400 font-semibold">$1</span>');
+            return escaped.replace(regex, '<span class="text-primary-400 font-semibold">$1</span>');
+        },
+        escapeHtml(str) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
         }
     }
 }

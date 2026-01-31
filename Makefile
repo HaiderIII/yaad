@@ -1,48 +1,74 @@
-.PHONY: start stop dev services db css install clean backup
+.PHONY: run dev install stop redis clean test lint format backup
 
-# Start all services and run the app
-start: services dev
+# Auto-detect Python 3.11 (brew on macOS), fallback to python3
+PYTHON := $(shell command -v python3.11 2>/dev/null || command -v python3 2>/dev/null)
+VENV := venv
+ACTIVATE := . $(VENV)/bin/activate
 
-# Start Docker services (PostgreSQL + Redis)
-services:
-	@echo "Stopping local PostgreSQL if running..."
-	@sudo service postgresql stop 2>/dev/null || true
-	@echo "Starting Docker containers..."
-	@sudo docker start yaad-postgres yaad-redis 2>/dev/null || sudo docker compose up -d postgres redis
-	@echo "Services started."
+# === Main command: one command to launch everything ===
+run: $(VENV) redis
+	@echo "Starting Yaad on http://localhost:8000 ..."
+	@$(ACTIVATE) && uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-# Stop Docker services
+# Same as run (alias)
+dev: run
+
+# === Setup ===
+
+# Create venv + install deps if venv doesn't exist
+$(VENV): pyproject.toml
+	@if [ ! -d "$(VENV)" ]; then \
+		echo "Creating venv with $(PYTHON)..."; \
+		$(PYTHON) -m venv $(VENV); \
+		$(ACTIVATE) && pip install -e .; \
+		echo "Done."; \
+	fi
+
+# Force reinstall dependencies
+install:
+	@rm -rf $(VENV)
+	$(PYTHON) -m venv $(VENV)
+	$(ACTIVATE) && pip install -e ".[dev]"
+
+# === Services ===
+
+# Start Redis (local, skip if already running or unavailable)
+redis:
+	@if command -v redis-cli >/dev/null 2>&1; then \
+		redis-cli ping >/dev/null 2>&1 || (echo "Starting Redis..." && brew services start redis 2>/dev/null || redis-server --daemonize yes 2>/dev/null || true); \
+	elif command -v docker >/dev/null 2>&1; then \
+		docker start yaad-redis 2>/dev/null || docker run -d --name yaad-redis -p 6379:6379 redis:7-alpine 2>/dev/null || true; \
+	else \
+		echo "Warning: Redis not found. Install with: brew install redis"; \
+	fi
+
+# Stop everything
 stop:
-	@echo "Stopping Docker containers..."
-	@sudo docker stop yaad-postgres yaad-redis 2>/dev/null || true
-	@echo "Services stopped."
+	@kill $$(lsof -ti:8000) 2>/dev/null || true
+	@brew services stop redis 2>/dev/null || docker stop yaad-redis 2>/dev/null || true
+	@echo "Stopped."
 
-# Run development server
-dev:
-	@echo "Starting Yaad server on http://localhost:8000 ..."
-	. venv/bin/activate && uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+# === Dev tools ===
 
-# Run database migrations
+test:
+	@$(ACTIVATE) && pytest tests/ -v --tb=short
+
+lint:
+	@$(ACTIVATE) && ruff check src/ tests/
+
+format:
+	@$(ACTIVATE) && ruff format src/ tests/ && ruff check --fix src/ tests/
+
+# Database migrations
 db:
-	. venv/bin/activate && alembic upgrade head
+	@$(ACTIVATE) && alembic upgrade head
 
-# Watch CSS changes (run in separate terminal)
-css:
-	npm run watch
-
-# Backup database
+# Backup (Neon.tech cloud DB)
 backup:
-	@echo "Backing up database..."
-	@sudo docker exec yaad-postgres pg_dump -h localhost -U yaad yaad > yaad_backup_$$(date +%Y%m%d_%H%M%S).sql
+	@$(ACTIVATE) && pg_dump "$(DATABASE_URL)" > yaad_backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "Backup done."
 
-# Install dependencies
-install:
-	python -m venv venv
-	. venv/bin/activate && pip install -r requirements.txt
-	npm install
-
-# Clean up
+# Clean caches
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true

@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="4" fill="#0a0f1a"/>
-  <text x="16" y="23" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#4158e8" text-anchor="middle">Y</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
+  <defs>
+    <linearGradient id="yaadGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" ry="120" fill="url(#yaadGradient)"/>
+  <path fill="#ffffff" d="M256 304 C 256 304, 352 160, 368 136 C 379 119, 416 119, 416 160 C 416 180, 320 320, 296 352 L 296 432 C 296 454, 278 472, 256 472 C 234 472, 216 454, 216 432 L 216 352 C 192 320, 96 180, 96 160 C 96 119, 133 119, 144 136 C 160 160, 256 304, 256 304 Z"/>
+  <circle cx="256" cy="494" r="18" fill="#ffffff"/>
 </svg>

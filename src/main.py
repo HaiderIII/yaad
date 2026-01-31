@@ -28,6 +28,7 @@ from src.constants import (
 )
 from src.db import async_session_maker, init_db
 from src.utils.cache import cache
+from src.utils.http_client import close_all_clients
 from src.utils.logging import get_logger, setup_logging
 from src.utils.metrics import MetricsMiddleware, metrics
 from src.web import web_router
@@ -59,9 +60,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' https: data:; "
             "font-src 'self'; "
-            "connect-src 'self'; "
+            "connect-src 'self' https:; "
             "frame-ancestors 'none';"
         )
+        # Allow service worker to control the entire app scope
+        if request.url.path == "/static/sw.js":
+            response.headers["Service-Worker-Allowed"] = "/"
         # HSTS (only in production)
         if settings.is_production:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -163,7 +167,7 @@ async def periodic_streaming_links_refresh(shutdown_event: asyncio.Event) -> Non
                         | (Media.streaming_links_updated < cutoff)
                     ),
                 )
-                result = await db.execute(query)
+                result = await db.execute(query.limit(100))
                 media_list = result.scalars().all()
 
                 if not media_list:
@@ -356,6 +360,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await cache.close()
     logger.info("Redis cache closed")
 
+    # Close persistent HTTP clients
+    await close_all_clients()
+    logger.info("HTTP clients closed")
+
     # Wait for tasks to complete gracefully (with timeout)
     tasks = [kobo_sync_task, letterboxd_sync_task, streaming_links_task, youtube_sync_task, recommendations_task]
     try:
@@ -438,7 +446,6 @@ async def health_check() -> JSONResponse:
     Returns:
         JSONResponse with status, uptime, and service health checks.
     """
-    import redis.asyncio as redis
     from sqlalchemy import text
 
     health_status = {
@@ -454,18 +461,16 @@ async def health_check() -> JSONResponse:
         async with async_session_maker() as db:
             await db.execute(text("SELECT 1"))
         health_status["checks"]["database"] = {"status": "healthy"}
-    except Exception as e:
-        health_status["checks"]["database"] = {"status": "unhealthy", "error": str(e)}
+    except Exception:
+        health_status["checks"]["database"] = {"status": "unhealthy"}
         health_status["status"] = "degraded"
 
     # Check Redis connection
     try:
-        redis_client = redis.from_url(str(settings.redis_url))
-        await redis_client.ping()
-        await redis_client.close()
+        await cache.ping()
         health_status["checks"]["redis"] = {"status": "healthy"}
-    except Exception as e:
-        health_status["checks"]["redis"] = {"status": "unhealthy", "error": str(e)}
+    except Exception:
+        health_status["checks"]["redis"] = {"status": "unhealthy"}
         health_status["status"] = "degraded"
 
     status_code = 200 if health_status["status"] == "healthy" else 503

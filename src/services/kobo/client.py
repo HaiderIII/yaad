@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-from src.constants import HTTPX_TIMEOUT
+from src.utils.http_client import get_general_client
 
 logger = logging.getLogger(__name__)
 
@@ -107,67 +107,67 @@ class KoboClient:
             "AppVersion": KOBO_APP_VERSION,
         }
 
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                response = await client.get(
-                    KOBO_AUTH_ACTIVATE,
-                    params=params,
-                    follow_redirects=True,
-                )
+        client = get_general_client()
+        try:
+            response = await client.get(
+                KOBO_AUTH_ACTIVATE,
+                params=params,
+                follow_redirects=True,
+            )
 
-                if response.status_code != 200:
-                    logger.error(f"Kobo activation start failed: {response.status_code}")
-                    return None
-
-                html = response.text
-
-                # Extract 6-digit activation code from QR code generator URL
-                # Pattern: qrcodegenerator/generate...%26code%3D123456
-                code_match = re.search(r"qrcodegenerator/generate.+?%26code%3D(\d+)", html)
-                if not code_match:
-                    # Try alternative patterns
-                    code_match = re.search(r'code["\s:=]+["\']?(\d{6})["\']?', html, re.IGNORECASE)
-
-                if not code_match:
-                    # Try to find any 6-digit number that looks like a code
-                    code_match = re.search(r'\b(\d{6})\b', html)
-
-                if not code_match:
-                    logger.error("Could not extract activation code from Kobo response")
-                    logger.debug(f"Response HTML: {html[:1000]}")
-                    return None
-
-                user_code = code_match.group(1).strip()
-
-                # Extract polling URL from data-poll-endpoint attribute
-                poll_match = re.search(r'data-poll-endpoint="([^"]+)"', html)
-                if not poll_match:
-                    # Try alternative patterns
-                    poll_match = re.search(r'data-poll-url="([^"]*)"', html)
-                if not poll_match:
-                    poll_match = re.search(r'pollUrl["\s:=]+["\']([^"\']+)["\']', html)
-
-                polling_url = ""
-                if poll_match:
-                    endpoint = poll_match.group(1)
-                    # Make sure it's a full URL
-                    if endpoint.startswith("/"):
-                        polling_url = f"https://auth.kobobooks.com{endpoint}"
-                    elif not endpoint.startswith("http"):
-                        polling_url = f"https://auth.kobobooks.com/{endpoint}"
-                    else:
-                        polling_url = endpoint
-
-                return ActivationInfo(
-                    activation_url=KOBO_ACTIVATE_URL,
-                    user_code=user_code,
-                    device_id=device_id,
-                    polling_url=polling_url,
-                )
-
-            except httpx.RequestError as e:
-                logger.error(f"Kobo activation request failed: {e}")
+            if response.status_code != 200:
+                logger.error(f"Kobo activation start failed: {response.status_code}")
                 return None
+
+            html = response.text
+
+            # Extract 6-digit activation code from QR code generator URL
+            # Pattern: qrcodegenerator/generate...%26code%3D123456
+            code_match = re.search(r"qrcodegenerator/generate.+?%26code%3D(\d+)", html)
+            if not code_match:
+                # Try alternative patterns
+                code_match = re.search(r'code["\s:=]+["\']?(\d{6})["\']?', html, re.IGNORECASE)
+
+            if not code_match:
+                # Try to find any 6-digit number that looks like a code
+                code_match = re.search(r'\b(\d{6})\b', html)
+
+            if not code_match:
+                logger.error("Could not extract activation code from Kobo response")
+                logger.debug(f"Response HTML: {html[:1000]}")
+                return None
+
+            user_code = code_match.group(1).strip()
+
+            # Extract polling URL from data-poll-endpoint attribute
+            poll_match = re.search(r'data-poll-endpoint="([^"]+)"', html)
+            if not poll_match:
+                # Try alternative patterns
+                poll_match = re.search(r'data-poll-url="([^"]*)"', html)
+            if not poll_match:
+                poll_match = re.search(r'pollUrl["\s:=]+["\']([^"\']+)["\']', html)
+
+            polling_url = ""
+            if poll_match:
+                endpoint = poll_match.group(1)
+                # Make sure it's a full URL
+                if endpoint.startswith("/"):
+                    polling_url = f"https://auth.kobobooks.com{endpoint}"
+                elif not endpoint.startswith("http"):
+                    polling_url = f"https://auth.kobobooks.com/{endpoint}"
+                else:
+                    polling_url = endpoint
+
+            return ActivationInfo(
+                activation_url=KOBO_ACTIVATE_URL,
+                user_code=user_code,
+                device_id=device_id,
+                polling_url=polling_url,
+            )
+
+        except httpx.RequestError as e:
+            logger.error(f"Kobo activation request failed: {e}")
+            return None
 
     async def check_activation(self, device_id: str, polling_url: str) -> dict | None:
         """Check if activation has been completed.
@@ -175,64 +175,64 @@ class KoboClient:
         Returns:
             Dict with user_key and email if complete, None if still pending or failed.
         """
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                # If polling_url doesn't have device ID, add it
-                if "DeviceId" not in polling_url:
-                    separator = "&" if "?" in polling_url else "?"
-                    polling_url = f"{polling_url}{separator}DeviceId={device_id}"
+        client = get_general_client()
+        try:
+            # If polling_url doesn't have device ID, add it
+            if "DeviceId" not in polling_url:
+                separator = "&" if "?" in polling_url else "?"
+                polling_url = f"{polling_url}{separator}DeviceId={device_id}"
 
-                # Use POST as per Kobo's API
-                response = await client.post(polling_url, follow_redirects=False)
+            # Use POST as per Kobo's API
+            response = await client.post(polling_url, follow_redirects=False)
 
-                # Check for redirect (indicates completion)
-                if response.status_code in (301, 302, 303, 307, 308):
-                    redirect_url = response.headers.get("Location", "")
-                    return self._extract_user_key_from_url(redirect_url)
+            # Check for redirect (indicates completion)
+            if response.status_code in (301, 302, 303, 307, 308):
+                redirect_url = response.headers.get("Location", "")
+                return self._extract_user_key_from_url(redirect_url)
 
-                # Check response body for status
-                if response.status_code == 200:
-                    # Try JSON first
-                    try:
-                        data = response.json()
-                        if data.get("Status") == "Complete":
-                            # Extract from RedirectUrl if present
-                            redirect_url = data.get("RedirectUrl", "")
-                            if redirect_url:
-                                result = self._extract_user_key_from_url(redirect_url)
-                                if result:
-                                    return result
-                            # Fallback to direct fields
-                            return {
-                                "user_key": data.get("UserKey"),
-                                "user_id": data.get("UserId"),
-                                "email": data.get("Email"),
-                                "complete": True,
-                            }
-                    except Exception:
-                        # Not JSON, check HTML for userKey
-                        html = response.text
+            # Check response body for status
+            if response.status_code == 200:
+                # Try JSON first
+                try:
+                    data = response.json()
+                    if data.get("Status") == "Complete":
+                        # Extract from RedirectUrl if present
+                        redirect_url = data.get("RedirectUrl", "")
+                        if redirect_url:
+                            result = self._extract_user_key_from_url(redirect_url)
+                            if result:
+                                return result
+                        # Fallback to direct fields
+                        return {
+                            "user_key": data.get("UserKey"),
+                            "user_id": data.get("UserId"),
+                            "email": data.get("Email"),
+                            "complete": True,
+                        }
+                except Exception:
+                    # Not JSON, check HTML for userKey
+                    html = response.text
 
-                        # Look for userKey in various patterns
-                        user_key_match = re.search(r'userKey["\s:=]+["\'"]?([a-zA-Z0-9\-]+)["\']?', html, re.IGNORECASE)
-                        if user_key_match:
-                            return {
-                                "user_key": user_key_match.group(1),
-                                "complete": True,
-                            }
+                    # Look for userKey in various patterns
+                    user_key_match = re.search(r'userKey["\s:=]+["\'"]?([a-zA-Z0-9\-]+)["\']?', html, re.IGNORECASE)
+                    if user_key_match:
+                        return {
+                            "user_key": user_key_match.group(1),
+                            "complete": True,
+                        }
 
-                        # Check if success page
-                        if "activée" in html.lower() or "activated" in html.lower() or "success" in html.lower():
-                            # Try to extract from URL in page
-                            url_match = re.search(r'href=["\']([^"\']*userKey[^"\']*)["\']', html)
-                            if url_match:
-                                return self._extract_user_key_from_url(url_match.group(1))
+                    # Check if success page
+                    if "activée" in html.lower() or "activated" in html.lower() or "success" in html.lower():
+                        # Try to extract from URL in page
+                        url_match = re.search(r'href=["\']([^"\']*userKey[^"\']*)["\']', html)
+                        if url_match:
+                            return self._extract_user_key_from_url(url_match.group(1))
 
-                return None  # Still pending
+            return None  # Still pending
 
-            except httpx.RequestError as e:
-                logger.error(f"Kobo activation check failed: {e}")
-                return None
+        except httpx.RequestError as e:
+            logger.error(f"Kobo activation check failed: {e}")
+            return None
 
     def _extract_user_key_from_url(self, url: str) -> dict | None:
         """Extract userKey and other params from URL."""
@@ -279,30 +279,30 @@ class KoboClient:
             "UserKey": user_key,
         }
 
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                response = await client.post(
-                    KOBO_AUTH_DEVICE,
-                    json=auth_data,
-                    headers=self._get_device_headers(),
-                )
+        client = get_general_client()
+        try:
+            response = await client.post(
+                KOBO_AUTH_DEVICE,
+                json=auth_data,
+                headers=self._get_device_headers(),
+            )
 
-                if response.status_code != 200:
-                    logger.error(f"Device auth failed: {response.status_code} - {response.text[:200]}")
-                    return None
-
-                data = response.json()
-
-                return KoboCredentials(
-                    device_id=device_id,
-                    user_key=user_key,
-                    access_token=data.get("AccessToken"),
-                    refresh_token=data.get("RefreshToken"),
-                )
-
-            except httpx.RequestError as e:
-                logger.error(f"Kobo device auth request failed: {e}")
+            if response.status_code != 200:
+                logger.error(f"Device auth failed: {response.status_code} - {response.text[:200]}")
                 return None
+
+            data = response.json()
+
+            return KoboCredentials(
+                device_id=device_id,
+                user_key=user_key,
+                access_token=data.get("AccessToken"),
+                refresh_token=data.get("RefreshToken"),
+            )
+
+        except httpx.RequestError as e:
+            logger.error(f"Kobo device auth request failed: {e}")
+            return None
 
     async def refresh_token(self, credentials: KoboCredentials) -> KoboCredentials | None:
         """Refresh the access token."""
@@ -320,58 +320,58 @@ class KoboClient:
             "RefreshToken": credentials.refresh_token,
         }
 
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                response = await client.post(
-                    KOBO_AUTH_REFRESH,
-                    json=refresh_data,
-                    headers=self._get_device_headers(),
-                )
+        client = get_general_client()
+        try:
+            response = await client.post(
+                KOBO_AUTH_REFRESH,
+                json=refresh_data,
+                headers=self._get_device_headers(),
+            )
 
-                if response.status_code != 200:
-                    logger.warning(f"Kobo token refresh failed: {response.status_code}")
-                    return None
-
-                data = response.json()
-
-                return KoboCredentials(
-                    device_id=credentials.device_id,
-                    user_key=credentials.user_key,
-                    access_token=data.get("AccessToken"),
-                    refresh_token=data.get("RefreshToken"),
-                )
-
-            except httpx.RequestError as e:
-                logger.error(f"Kobo refresh request failed: {e}")
+            if response.status_code != 200:
+                logger.warning(f"Kobo token refresh failed: {response.status_code}")
                 return None
+
+            data = response.json()
+
+            return KoboCredentials(
+                device_id=credentials.device_id,
+                user_key=credentials.user_key,
+                access_token=data.get("AccessToken"),
+                refresh_token=data.get("RefreshToken"),
+            )
+
+        except httpx.RequestError as e:
+            logger.error(f"Kobo refresh request failed: {e}")
+            return None
 
     async def _load_endpoints(self, access_token: str) -> bool:
         """Load API endpoints from initialization."""
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                response = await client.get(
-                    KOBO_INIT,
-                    headers=self._get_device_headers(access_token),
-                )
+        client = get_general_client()
+        try:
+            response = await client.get(
+                KOBO_INIT,
+                headers=self._get_device_headers(access_token),
+            )
 
-                if response.status_code != 200:
-                    logger.error(f"Init failed: {response.status_code}")
-                    return False
-
-                data = response.json()
-                resources = data.get("Resources", {})
-
-                self._endpoints = {
-                    "library_sync": resources.get("library_sync"),
-                    "library_items": resources.get("library_items"),
-                    "user_profile": resources.get("user_profile"),
-                }
-
-                return True
-
-            except httpx.RequestError as e:
-                logger.error(f"Failed to load Kobo endpoints: {e}")
+            if response.status_code != 200:
+                logger.error(f"Init failed: {response.status_code}")
                 return False
+
+            data = response.json()
+            resources = data.get("Resources", {})
+
+            self._endpoints = {
+                "library_sync": resources.get("library_sync"),
+                "library_items": resources.get("library_items"),
+                "user_profile": resources.get("user_profile"),
+            }
+
+            return True
+
+        except httpx.RequestError as e:
+            logger.error(f"Failed to load Kobo endpoints: {e}")
+            return False
 
     async def get_library(self, credentials: KoboCredentials) -> list[KoboBook]:
         """Get user's Kobo library with reading progress."""
@@ -390,35 +390,35 @@ class KoboClient:
         books: list[KoboBook] = []
         sync_token: str | None = None
 
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            while True:
-                headers = self._get_device_headers(credentials.access_token)
-                if sync_token:
-                    headers["x-kobo-synctoken"] = sync_token
+        client = get_general_client()
+        while True:
+            headers = self._get_device_headers(credentials.access_token)
+            if sync_token:
+                headers["x-kobo-synctoken"] = sync_token
 
-                try:
-                    response = await client.get(library_url, headers=headers)
+            try:
+                response = await client.get(library_url, headers=headers)
 
-                    if response.status_code != 200:
-                        logger.warning(f"Library sync failed: {response.status_code}")
-                        break
-
-                    sync_token = response.headers.get("x-kobo-synctoken")
-                    sync_continuation = response.headers.get("x-kobo-sync")
-
-                    data = response.json()
-
-                    for item in data:
-                        book = self._parse_library_item(item)
-                        if book:
-                            books.append(book)
-
-                    if sync_continuation != "continue":
-                        break
-
-                except httpx.RequestError as e:
-                    logger.error(f"Library request failed: {e}")
+                if response.status_code != 200:
+                    logger.warning(f"Library sync failed: {response.status_code}")
                     break
+
+                sync_token = response.headers.get("x-kobo-synctoken")
+                sync_continuation = response.headers.get("x-kobo-sync")
+
+                data = response.json()
+
+                for item in data:
+                    book = self._parse_library_item(item)
+                    if book:
+                        books.append(book)
+
+                if sync_continuation != "continue":
+                    break
+
+            except httpx.RequestError as e:
+                logger.error(f"Library request failed: {e}")
+                break
 
         return books
 
@@ -509,16 +509,16 @@ class KoboClient:
         if not credentials.access_token:
             return False
 
-        async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
-            try:
-                response = await client.get(
-                    KOBO_INIT,
-                    headers=self._get_device_headers(credentials.access_token),
-                )
-                return response.status_code == 200
+        client = get_general_client()
+        try:
+            response = await client.get(
+                KOBO_INIT,
+                headers=self._get_device_headers(credentials.access_token),
+            )
+            return response.status_code == 200
 
-            except httpx.RequestError:
-                return False
+        except httpx.RequestError:
+            return False
 
 
 # Singleton instance

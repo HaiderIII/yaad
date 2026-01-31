@@ -1,6 +1,6 @@
 """Recommendation model for storing AI-generated recommendations."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Enum, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -49,7 +49,7 @@ class Recommendation(Base, TimestampMixin):
     # Tracking
     is_dismissed: Mapped[bool] = mapped_column(default=False)  # User dismissed this recommendation
     added_to_library: Mapped[bool] = mapped_column(default=False)  # User added to their library
-    generated_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    generated_at: Mapped[datetime] = mapped_column(nullable=False, default=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User", back_populates="recommendations")

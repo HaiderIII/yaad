@@ -127,16 +127,26 @@ async def generate_recommendations(
 @router.get("/generate/stream")
 async def generate_recommendations_stream(
     request: Request,
+    mode: str = "full",
     user: User = Depends(get_current_user),
 ):
-    """Stream recommendation generation progress via SSE."""
+    """Stream recommendation generation progress via SSE.
+
+    Args:
+        mode: 'full' for complete regeneration, 'complete' to fill gaps only.
+    """
 
     async def event_generator():
         # Create a new session for the background task
         async with async_session_maker() as db:
             engine = RecommendationEngine(db)
 
-            async for event in engine.generate_recommendations_streaming(user):
+            if mode == "complete":
+                gen = engine.complete_recommendations_streaming(user)
+            else:
+                gen = engine.generate_recommendations_streaming(user)
+
+            async for event in gen:
                 # Check if client disconnected
                 if await request.is_disconnected():
                     logger.info(f"Client disconnected during recommendation generation for user {user.id}")
@@ -216,7 +226,7 @@ async def add_recommendation_to_library(
                 genres = metadata.get("genres", [])
                 directors = [d["name"] for d in metadata.get("directors", [])]
         elif rec.media_type == MediaType.SERIES:
-            metadata = await tmdb_service.get_series_details(int(rec.external_id))
+            metadata = await tmdb_service.get_tv_details(int(rec.external_id))
             if metadata:
                 genres = metadata.get("genres", [])
                 directors = [d["name"] for d in metadata.get("directors", [])]
@@ -286,7 +296,7 @@ async def add_recommendation_to_library(
     except Exception as e:
         logger.error(f"Failed to add recommendation {recommendation_id}: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to add media: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add media to library")
 
 
 class RecommendationDetailResponse(BaseModel):
@@ -379,7 +389,7 @@ async def get_recommendation_details(
                 response_data["trailer_site"] = trailer.get("site")
 
         elif rec.media_type == MediaType.SERIES:
-            metadata = await tmdb_service.get_series_details(int(rec.external_id))
+            metadata = await tmdb_service.get_tv_details(int(rec.external_id))
             if metadata:
                 response_data.update({
                     "original_title": metadata.get("original_title"),

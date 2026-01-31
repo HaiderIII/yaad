@@ -12,6 +12,8 @@ from typing import Any
 
 import httpx
 
+from src.utils.http_client import get_general_client
+
 # API endpoints (both free, no API key required for basic usage)
 GOOGLE_BOOKS_API = "https://www.googleapis.com/books/v1"
 OPEN_LIBRARY_API = "https://openlibrary.org"
@@ -104,44 +106,44 @@ class BookService:
         if not normalized:
             return None
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            # Step 1: Try direct ISBN lookup
-            direct_result = await self._direct_isbn_lookup(client, normalized)
+        client = get_general_client()
+        # Step 1: Try direct ISBN lookup
+        direct_result = await self._direct_isbn_lookup(client, normalized)
 
-            # Step 2: If incomplete (especially missing cover), search by title
-            direct_score = completeness_score(direct_result)
-            if direct_result and direct_result.get("title"):
-                # Search if missing cover or low completeness score
-                if not has_cover(direct_result) or direct_score < 15:
-                    # Search by title to find edition with better data
-                    title = direct_result.get("title", "")
-                    authors = direct_result.get("authors", [])
+        # Step 2: If incomplete (especially missing cover), search by title
+        direct_score = completeness_score(direct_result)
+        if direct_result and direct_result.get("title"):
+            # Search if missing cover or low completeness score
+            if not has_cover(direct_result) or direct_score < 15:
+                # Search by title to find edition with better data
+                title = direct_result.get("title", "")
+                authors = direct_result.get("authors", [])
 
-                    better_result = await self._find_best_edition(
-                        client, title, authors, normalized
-                    )
+                better_result = await self._find_best_edition(
+                    client, title, authors, normalized
+                )
 
-                    # Use better result if it has higher completeness score
-                    if better_result and completeness_score(better_result) > direct_score:
-                        # Keep the user's ISBN as reference but use better data
-                        better_result["user_isbn"] = normalized
-                        better_result["user_edition"] = direct_result
-                        return better_result
+                # Use better result if it has higher completeness score
+                if better_result and completeness_score(better_result) > direct_score:
+                    # Keep the user's ISBN as reference but use better data
+                    better_result["user_isbn"] = normalized
+                    better_result["user_edition"] = direct_result
+                    return better_result
 
-            # Step 3: If still no cover, try title search as last resort
-            if direct_result and not has_cover(direct_result):
-                if direct_result.get("title"):
-                    search_results = await self._search_google(
-                        client, direct_result["title"], 10
-                    )
-                    # Sort by completeness and pick best with cover
-                    search_results.sort(key=lambda x: -completeness_score(x))
-                    for result in search_results:
-                        if has_cover(result):
-                            result["user_isbn"] = normalized
-                            return result
+        # Step 3: If still no cover, try title search as last resort
+        if direct_result and not has_cover(direct_result):
+            if direct_result.get("title"):
+                search_results = await self._search_google(
+                    client, direct_result["title"], 10
+                )
+                # Sort by completeness and pick best with cover
+                search_results.sort(key=lambda x: -completeness_score(x))
+                for result in search_results:
+                    if has_cover(result):
+                        result["user_isbn"] = normalized
+                        return result
 
-            return direct_result
+        return direct_result
 
     async def _direct_isbn_lookup(
         self, client: httpx.AsyncClient, isbn: str
@@ -241,23 +243,23 @@ class BookService:
         Search books by title/author.
         Combines results from both APIs, deduplicates, and sorts by most recent.
         """
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Search both APIs
-            google_results = await self._search_google(client, query, limit)
-            ol_results = await self._search_open_library(client, query, limit)
+        client = get_general_client()
+        # Search both APIs
+        google_results = await self._search_google(client, query, limit)
+        ol_results = await self._search_open_library(client, query, limit)
 
-            # Combine and deduplicate
-            all_results = self._deduplicate_results(google_results + ol_results)
+        # Combine and deduplicate
+        all_results = self._deduplicate_results(google_results + ol_results)
 
-            # Sort by completeness score (prioritizes cover, then authors, etc.)
-            all_results.sort(
-                key=lambda x: (
-                    -completeness_score(x),  # Higher score = better
-                    -(x.get("year") or 0),  # Then most recent first
-                )
+        # Sort by completeness score (prioritizes cover, then authors, etc.)
+        all_results.sort(
+            key=lambda x: (
+                -completeness_score(x),  # Higher score = better
+                -(x.get("year") or 0),  # Then most recent first
             )
+        )
 
-            return all_results[:limit]
+        return all_results[:limit]
 
     # -------------------------------------------------------------------------
     # Google Books API

@@ -4,6 +4,8 @@ import asyncio
 import logging
 import re
 import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as DefusedET
 from typing import Any
 from urllib.parse import urlparse
 
@@ -158,7 +160,7 @@ class PodcastService:
             try:
                 response = await client.get(feed_url)
                 if response.status_code == 200:
-                    root = ET.fromstring(response.text)
+                    root = DefusedET.fromstring(response.text)
                     channel = root.find("channel")
                     if channel is None:
                         return []
@@ -622,7 +624,7 @@ class PodcastService:
                 if "xml" not in content_type and not content.strip().startswith("<?xml"):
                     return None
 
-                root = ET.fromstring(content)
+                root = DefusedET.fromstring(content)
                 channel = root.find("channel")
                 if channel is None:
                     return None

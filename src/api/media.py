@@ -73,8 +73,14 @@ async def list_media(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> MediaListRead:
     """List media with optional filters."""
-    media_type = MediaType(type) if type else None
-    media_status = MediaStatus(status) if status else None
+    try:
+        media_type = MediaType(type) if type else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid media type: {type}")
+    try:
+        media_status = MediaStatus(status) if status else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
     items, total = await get_media_list(
         db=db,
@@ -115,8 +121,14 @@ async def list_media_cursor(
     stable results when data is being modified. Use the `cursor` parameter
     with the `next_cursor` value from the previous response to get the next page.
     """
-    media_type = MediaType(type) if type else None
-    media_status = MediaStatus(status) if status else None
+    try:
+        media_type = MediaType(type) if type else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid media type: {type}")
+    try:
+        media_status = MediaStatus(status) if status else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
     items, next_cursor, has_more = await get_media_list_cursor(
         db=db,
@@ -147,7 +159,10 @@ async def list_incomplete_media(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> MediaListRead:
     """List media with missing essential fields."""
-    media_type = MediaType(type) if type else None
+    try:
+        media_type = MediaType(type) if type else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid media type: {type}")
 
     items, total = await get_incomplete_media(
         db=db,

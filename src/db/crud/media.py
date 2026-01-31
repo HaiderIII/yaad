@@ -280,6 +280,12 @@ async def update_media_quick(
     if rating is not None:
         media.rating = rating
         result["rating"] = rating
+        # Auto-transition to finished when rating a to_consume item
+        if media.status == MediaStatus.TO_CONSUME:
+            media.status = MediaStatus.FINISHED
+            result["status"] = "finished"
+            if not media.consumed_at:
+                media.consumed_at = datetime.now(UTC)
 
     if notes is not None:
         media.notes = notes
@@ -358,8 +364,8 @@ async def get_media_list(
         # Join with genres and filter
         query = query.join(media_genres).join(Genre).where(Genre.name == genre)
     if unrated_only:
-        # Filter for media without ratings (NULL rating)
-        query = query.where(Media.rating.is_(None))
+        # Filter for consumed media without ratings (exclude to_consume - can't rate what you haven't seen)
+        query = query.where(Media.rating.is_(None), Media.status != MediaStatus.TO_CONSUME)
 
     # Apply sorting - IN_PROGRESS first, then TO_CONSUME, then FINISHED, then ABANDONED
     # Create priority column for status ordering
@@ -444,7 +450,7 @@ async def get_media_list(
     if genre:
         count_query = count_query.select_from(Media).join(media_genres).join(Genre).where(Genre.name == genre)
     if unrated_only:
-        count_query = count_query.where(Media.rating.is_(None))
+        count_query = count_query.where(Media.rating.is_(None), Media.status != MediaStatus.TO_CONSUME)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
@@ -616,6 +622,8 @@ async def update_media(
         return None
 
     # Update fields if provided
+    if data.type is not None:
+        media.type = MediaType(data.type.value)
     if data.title is not None:
         media.title = data.title
     if data.year is not None:
@@ -639,6 +647,11 @@ async def update_media(
             media.consumed_at = datetime.now(UTC)
     if data.rating is not None:
         media.rating = data.rating
+        # Auto-transition to finished when rating a to_consume item
+        if media.status == MediaStatus.TO_CONSUME:
+            media.status = MediaStatus.FINISHED
+            if not media.consumed_at:
+                media.consumed_at = datetime.now(UTC)
     if data.notes is not None:
         media.notes = data.notes
     if data.current_episode is not None:
@@ -923,6 +936,7 @@ async def get_unrated_count(
         select(func.count(Media.id)).where(
             Media.user_id == user_id,
             Media.rating.is_(None),
+            Media.status != MediaStatus.TO_CONSUME,
         )
     )
     return result.scalar() or 0

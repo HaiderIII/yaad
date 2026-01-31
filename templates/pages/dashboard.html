@@ -312,7 +312,7 @@
 
     <!-- For You Section (AI Recommendations) -->
     {% if recommendations %}
-    <div class="mt-8" x-data="recommendationsSlider()">
+    <div class="mt-8" x-data="forYouSection()">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
                 <h2 class="text-xl font-semibold text-white">{{ t('nav.recommendations') }}</h2>
@@ -323,9 +323,59 @@
                     AI
                 </span>
             </div>
-            <a href="/recommendations" class="text-primary-500 hover:text-primary-400 text-sm font-medium">
-                {{ t('dashboard.view_all') }}
-            </a>
+            <div class="flex items-center gap-2">
+                <!-- Complete: fill gaps -->
+                <button @click="generate('complete')" :disabled="generating"
+                   class="p-2 bg-dark-800 hover:bg-dark-700 disabled:opacity-50 rounded-lg transition-colors text-dark-400 hover:text-primary-400"
+                   title="Complete recommendations">
+                    <svg :class="generating && mode === 'complete' && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+                <!-- Full Refresh -->
+                <button @click="generate('full')" :disabled="generating"
+                   class="p-2 bg-dark-800 hover:bg-dark-700 disabled:opacity-50 rounded-lg transition-colors text-dark-400 hover:text-primary-400"
+                   title="Full refresh">
+                    <svg :class="generating && mode === 'full' && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+                <!-- View All -->
+                <a href="/recommendations" class="text-primary-500 hover:text-primary-400 text-sm font-medium ml-1">
+                    {{ t('dashboard.view_all') }}
+                </a>
+            </div>
+        </div>
+
+        <!-- Inline Generation Progress -->
+        <div x-show="generating" x-transition class="mb-4">
+            <div class="bg-dark-900 rounded-xl border border-dark-800 p-4">
+                <!-- Status text + percentage -->
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-sm text-dark-300" x-text="status"></p>
+                    <span class="text-sm font-semibold text-primary-400" x-text="progress + '%'"></span>
+                </div>
+                <!-- Progress bar -->
+                <div class="h-2 bg-dark-800 rounded-full overflow-hidden mb-3">
+                    <div class="h-full bg-gradient-to-r from-primary-600 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out"
+                         :style="'width: ' + progress + '%'"></div>
+                </div>
+                <!-- Step tags -->
+                <div class="flex flex-wrap gap-2">
+                    <span :class="step === 'profile' ? 'bg-primary-500/20 text-primary-400 ring-1 ring-primary-500/40' : progress >= 10 ? 'bg-dark-700 text-dark-300' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">Profile</span>
+                    <span :class="step === 'films' ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40' : progress >= 35 ? 'bg-dark-700 text-dark-300' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">Films</span>
+                    <span :class="step === 'series' ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/40' : progress >= 55 ? 'bg-dark-700 text-dark-300' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">Series</span>
+                    <span :class="step === 'books' ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/40' : progress >= 80 ? 'bg-dark-700 text-dark-300' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">Books</span>
+                    <span :class="step === 'youtube' ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40' : progress >= 90 ? 'bg-dark-700 text-dark-300' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">YouTube</span>
+                    <span :class="step === 'done' ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/40' : 'bg-dark-800 text-dark-500'"
+                          class="px-2.5 py-1 text-xs font-medium rounded-full transition-all">Done</span>
+                </div>
+            </div>
         </div>
 
         <!-- Slider Container with Netflix-style navigation -->
@@ -771,5 +821,55 @@ function createSlider(refName) {
 function recentSlider() { return createSlider('recentSlider'); }
 function upNextSlider() { return createSlider('slider'); }
 function recommendationsSlider() { return createSlider('recoSlider'); }
+
+function forYouSection() {
+    return {
+        // Slider state
+        ...createSlider('recoSlider'),
+        // Generation state
+        generating: false,
+        progress: 0,
+        status: '',
+        step: '',
+        mode: 'full',
+
+        generate(mode) {
+            this.generating = true;
+            this.progress = 0;
+            this.mode = mode;
+            this.step = '';
+            this.status = mode === 'complete' ? 'Completing recommendations...' : 'Generating recommendations...';
+
+            const eventSource = new EventSource(`/api/recommendations/generate/stream?mode=${mode}`);
+
+            eventSource.addEventListener('progress', (e) => {
+                const data = JSON.parse(e.data);
+                this.progress = data.progress;
+                this.status = data.status;
+                this.step = data.step;
+            });
+
+            eventSource.addEventListener('complete', (e) => {
+                const data = JSON.parse(e.data);
+                eventSource.close();
+                if (data.success) {
+                    this.progress = 100;
+                    this.step = 'done';
+                    this.status = `Done! ${data.total} recommendations`;
+                    setTimeout(() => window.location.reload(), 800);
+                } else {
+                    this.generating = false;
+                    this.status = 'Error occurred';
+                }
+            });
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                this.generating = false;
+                this.status = 'Connection error';
+            };
+        }
+    };
+}
 </script>
 {% endblock %}

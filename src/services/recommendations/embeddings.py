@@ -5,7 +5,10 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +147,8 @@ class EmbeddingService:
 
         Since embeddings are normalized, this is equivalent to dot product.
         """
+        if np is None:
+            raise ImportError("numpy is required for recommendations. Install with: pip install -e '.[ml]'")
         arr1 = np.array(embedding1)
         arr2 = np.array(embedding2)
         return float(np.dot(arr1, arr2))
@@ -170,6 +175,8 @@ class EmbeddingService:
         if not candidate_embeddings:
             return []
 
+        if np is None:
+            raise ImportError("numpy is required for recommendations. Install with: pip install -e '.[ml]'")
         query = np.array(query_embedding)
         results = []
 
@@ -206,6 +213,8 @@ class EmbeddingService:
         embeddings = []
         weights = []
 
+        if np is None:
+            raise ImportError("numpy is required for recommendations. Install with: pip install -e '.[ml]'")
         for emb, rating in media_embeddings:
             if emb:
                 embeddings.append(np.array(emb))

@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+dist
+build
+venv
+.venv
+*.egg
+
+# Node
+node_modules
+package-lock.json
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+tests
+.pytest_cache
+.coverage
+htmlcov
+.mypy_cache
+
+# Data
+data/
+*.sql
+
+# Docker
+docker/
+Dockerfile
+docker-compose*.yml
+
+# Docs
+*.md
+LICENSE

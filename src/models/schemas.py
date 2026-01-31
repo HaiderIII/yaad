@@ -186,6 +186,7 @@ class MediaCreate(MediaBase):
 class MediaUpdate(BaseModel):
     """Media update schema."""
 
+    type: MediaTypeEnum | None = None
     title: str | None = None
     local_title: str | None = None
     year: int | None = None

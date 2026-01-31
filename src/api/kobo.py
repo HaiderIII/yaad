@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -381,7 +382,6 @@ async def sync_kobo_progress(
                         media.page_count = enriched_data["page_count"]
                     if enriched_data.get("description"):
                         # Strip HTML tags from description
-                        import re
                         media.description = re.sub(r'<[^>]+>', '', enriched_data["description"])
                     if enriched_data.get("year"):
                         media.year = enriched_data["year"]
@@ -411,7 +411,6 @@ async def sync_kobo_progress(
                 or (enriched_data.get("description") if enriched_data else None)
             )
             # Strip HTML tags from description
-            import re
             description = re.sub(r'<[^>]+>', '', raw_description) if raw_description else None
             page_count = enriched_data.get("page_count") if enriched_data else None
             year = enriched_data.get("year") if enriched_data else None

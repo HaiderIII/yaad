@@ -113,6 +113,9 @@ async def search_media(
     if cached is not None:
         return cached
 
+    # Escape SQL ILIKE wildcards to prevent wildcard injection
+    escaped = search_term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     # First, find matching media IDs (including author search)
     subquery = (
         select(Media.id)
@@ -122,9 +125,9 @@ async def search_media(
         .where(
             Media.user_id == user.id,
             or_(
-                Media.title.ilike(f"%{search_term}%"),
-                Media.original_title.ilike(f"%{search_term}%"),
-                Author.name.ilike(f"%{search_term}%"),
+                Media.title.ilike(f"%{escaped}%"),
+                Media.original_title.ilike(f"%{escaped}%"),
+                Author.name.ilike(f"%{escaped}%"),
             ),
         )
     ).subquery()
@@ -136,7 +139,7 @@ async def search_media(
         .where(Media.id.in_(select(subquery.c.id)))
         .order_by(
             # Prioritize exact title matches at start
-            Media.title.ilike(f"{search_term}%").desc(),
+            Media.title.ilike(f"{escaped}%").desc(),
             Media.title.asc(),
         )
         .limit(limit)

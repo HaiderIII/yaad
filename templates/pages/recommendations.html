@@ -17,16 +17,32 @@
                 <p class="text-slate-400 text-sm">Personalized suggestions based on your taste</p>
             </div>
         </div>
-        <button
-            @click="generateRecommendations()"
-            :disabled="generating"
-            class="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors border border-slate-700"
-        >
-            <svg :class="generating && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-            <span class="hidden sm:inline" x-text="generating ? 'Generating...' : 'Refresh'"></span>
-        </button>
+        <div class="flex items-center gap-2">
+            <!-- Complete: fill gaps in existing recommendations -->
+            <button
+                @click="generateRecommendations('complete')"
+                :disabled="generating"
+                class="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors border border-slate-700"
+                title="Complete existing recommendations"
+            >
+                <svg :class="generating && generationMode === 'complete' && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                <span class="hidden sm:inline" x-text="generating && generationMode === 'complete' ? 'Completing...' : 'Complete'"></span>
+            </button>
+            <!-- Full Refresh: regenerate all recommendations -->
+            <button
+                @click="generateRecommendations('full')"
+                :disabled="generating"
+                class="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors border border-slate-700"
+                title="Full refresh with new recommendations"
+            >
+                <svg :class="generating && generationMode === 'full' && 'animate-spin'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span class="hidden sm:inline" x-text="generating && generationMode === 'full' ? 'Refreshing...' : 'Refresh'"></span>
+            </button>
+        </div>
     </div>
 
     <!-- Elegant Generation Progress -->
@@ -177,7 +193,7 @@
             Add and rate some media to get personalized recommendations. The more you track, the better suggestions you'll receive.
         </p>
         <button
-            @click="generateRecommendations()"
+            @click="generateRecommendations('full')"
             class="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-colors"
         >
             Generate Recommendations
@@ -454,6 +470,18 @@ function recommendationsPage() {
         generating: false,
         generationProgress: 0,
         generationStatus: 'Initializing...',
+        generationMode: 'full',
+
+        init() {
+            // Auto-trigger generation if arriving from dashboard with ?action= param
+            const params = new URLSearchParams(window.location.search);
+            const action = params.get('action');
+            if (action === 'complete' || action === 'full') {
+                // Clean URL without reloading
+                window.history.replaceState({}, '', '/recommendations');
+                this.$nextTick(() => this.generateRecommendations(action));
+            }
+        },
 
         async openModal(recId) {
             this.showModal = true;
@@ -506,14 +534,15 @@ function recommendationsPage() {
             }
         },
 
-        async generateRecommendations() {
+        async generateRecommendations(mode = 'full') {
             this.generating = true;
             this.generationProgress = 0;
-            this.generationStatus = 'Connecting...';
+            this.generationMode = mode;
+            this.generationStatus = mode === 'complete' ? 'Completing recommendations...' : 'Connecting...';
 
             try {
                 // Use SSE for real-time progress updates
-                const eventSource = new EventSource('/api/recommendations/generate/stream');
+                const eventSource = new EventSource(`/api/recommendations/generate/stream?mode=${mode}`);
 
                 eventSource.addEventListener('progress', (event) => {
                     const data = JSON.parse(event.data);

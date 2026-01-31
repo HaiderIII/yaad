@@ -7,20 +7,204 @@
     window.statsData = {{ stats | tojson }};
 </script>
 <script src="/static/js/chart.umd.min.js"></script>
+<style>
+    @keyframes ring-fill {
+        from { stroke-dashoffset: 314; }
+    }
+    @keyframes fade-up {
+        from { opacity: 0; transform: translateY(30px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes fade-in-scale {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes count-up-pulse {
+        0% { transform: scale(0.6); opacity: 0; }
+        60% { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    @keyframes glow-pulse {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.1); }
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        33% { transform: translateY(-8px) rotate(1deg); }
+        66% { transform: translateY(4px) rotate(-1deg); }
+    }
+    @keyframes bar-grow {
+        from { transform: scaleX(0); }
+        to { transform: scaleX(1); }
+    }
+    @keyframes slide-right {
+        from { width: 0%; }
+    }
+    @keyframes number-roll {
+        from { transform: translateY(100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes orb-drift {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(15px, -20px); }
+        50% { transform: translate(-10px, -35px); }
+        75% { transform: translate(20px, -10px); }
+    }
+
+    /* Scroll-reveal: elements start invisible, animate in when .is-visible is added */
+    .reveal {
+        opacity: 0;
+        transform: translateY(30px) scale(0.97);
+        transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .reveal.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    .reveal-delay-1 { transition-delay: 0.08s; }
+    .reveal-delay-2 { transition-delay: 0.16s; }
+    .reveal-delay-3 { transition-delay: 0.24s; }
+
+    /* Initial load animations */
+    .animate-fade-up { animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.18s; }
+    .delay-3 { animation-delay: 0.26s; }
+
+    .hero-mesh {
+        background-image:
+            radial-gradient(at 20% 30%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
+            radial-gradient(at 80% 20%, rgba(236, 72, 153, 0.25) 0%, transparent 50%),
+            radial-gradient(at 50% 80%, rgba(168, 85, 247, 0.2) 0%, transparent 50%);
+    }
+    .glass-card {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(51, 65, 85, 0.25);
+        transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .glass-card:hover {
+        border-color: rgba(99, 102, 241, 0.25);
+        background: rgba(15, 23, 42, 0.6);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2), 0 0 40px rgba(99, 102, 241, 0.05);
+    }
+    .ring-glow {
+        filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.35)) drop-shadow(0 0 32px rgba(168, 85, 247, 0.2));
+    }
+    .bar-segment {
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), filter 0.3s ease;
+    }
+    .bar-segment:hover {
+        transform: scaleY(1.6);
+        filter: brightness(1.25);
+    }
+    .genre-bar {
+        transform-origin: left;
+        animation: bar-grow 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .rating-bar {
+        transform-origin: left;
+        transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .stat-number {
+        animation: number-roll 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .hero-orb {
+        animation: orb-drift 12s ease-in-out infinite;
+    }
+</style>
 <script>
     function statsPage() {
         return {
             data: window.statsData,
             charts: {},
+            heroNumber: 0,
+            heroFinished: 0,
+            heroInProgress: 0,
+            heroQueued: 0,
 
             init() {
-                this.$nextTick(() => this.renderCharts());
+                this.$nextTick(() => {
+                    this.renderCharts();
+                    this.setupScrollReveal();
+                    this.animateCounters();
+                });
             },
 
-            formatNumber(num) {
-                if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-                if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-                return num.toString();
+            // Animate hero counters from 0 to actual value
+            animateCounters() {
+                const duration = 1200;
+                const targets = {
+                    heroNumber: this.data?.total_media || 0,
+                    heroFinished: this.data?.total_finished || 0,
+                    heroInProgress: this.data?.total_in_progress || 0,
+                    heroQueued: this.data?.total_to_consume || 0,
+                };
+                const start = performance.now();
+                const step = (now) => {
+                    const progress = Math.min((now - start) / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                    this.heroNumber = Math.round(targets.heroNumber * ease);
+                    this.heroFinished = Math.round(targets.heroFinished * ease);
+                    this.heroInProgress = Math.round(targets.heroInProgress * ease);
+                    this.heroQueued = Math.round(targets.heroQueued * ease);
+                    if (progress < 1) requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
+            },
+
+            // IntersectionObserver for scroll-triggered reveals
+            setupScrollReveal() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-visible');
+                        }
+                    });
+                }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+                document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+            },
+
+            get completionPct() {
+                if (!this.data?.total_media) return 0;
+                return Math.round((this.data.total_finished / this.data.total_media) * 100);
+            },
+
+            get ringOffset() {
+                return 314 - (314 * this.completionPct / 100);
+            },
+
+            get ratingMax() {
+                if (!this.data?.rating_distribution?.length) return 1;
+                const counts = Array.from({ length: 5 }, (_, i) => {
+                    const found = this.data.rating_distribution.find(r => Math.floor(r.rating) === i + 1);
+                    return found?.count || 0;
+                });
+                return Math.max(...counts, 1);
+            },
+
+            ratingCount(star) {
+                if (!this.data?.rating_distribution?.length) return 0;
+                const found = this.data.rating_distribution.find(r => Math.floor(r.rating) === star);
+                return found?.count || 0;
+            },
+
+            get topGenreName() {
+                return this.data?.top_genres?.[0]?.name || '';
+            },
+
+            get busiestDay() {
+                if (!this.data?.weekly_pattern?.length) return null;
+                const max = this.data.weekly_pattern.reduce((a, b) => b.count > a.count ? b : a);
+                return max.count > 0 ? max.day : null;
             },
 
             renderCharts() {
@@ -29,144 +213,19 @@
                     return;
                 }
 
-                // Register custom plugin for center text in doughnut
-                const centerTextPlugin = {
-                    id: 'centerText',
-                    afterDraw(chart) {
-                        if (chart.config.type !== 'doughnut' || !chart.config.options.plugins.centerText) return;
-                        const { ctx, chartArea: { width, height, top } } = chart;
-                        const text = chart.config.options.plugins.centerText;
-                        ctx.save();
-                        ctx.font = 'bold 24px Inter, system-ui, sans-serif';
-                        ctx.fillStyle = '#f1f5f9';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(text.value, width / 2, top + height / 2 - 8);
-                        ctx.font = '12px Inter, system-ui, sans-serif';
-                        ctx.fillStyle = '#64748b';
-                        ctx.fillText(text.label, width / 2, top + height / 2 + 16);
-                        ctx.restore();
-                    }
-                };
-                Chart.register(centerTextPlugin);
-
-                const chartOptions = {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#94a3b8',
-                                font: { size: 11, family: 'Inter, system-ui, sans-serif', weight: '500' },
-                                padding: 16,
-                                usePointStyle: true,
-                                pointStyle: 'circle'
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleColor: '#f1f5f9',
-                            titleFont: { size: 13, weight: '600' },
-                            bodyColor: '#cbd5e1',
-                            bodyFont: { size: 12 },
-                            borderColor: 'rgba(99, 102, 241, 0.3)',
-                            borderWidth: 1,
-                            padding: { x: 14, y: 10 },
-                            cornerRadius: 10,
-                            displayColors: true,
-                            boxWidth: 8,
-                            boxHeight: 8,
-                            boxPadding: 4,
-                            caretSize: 6,
-                            caretPadding: 8
-                        }
-                    },
-                    animation: {
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    }
-                };
-
                 Object.values(this.charts).forEach(chart => chart?.destroy?.());
 
-                // Type Chart (Doughnut with center text)
-                if (this.data.by_type?.length) {
-                    const typeCtx = document.getElementById('typeChart');
-                    const total = this.data.by_type.reduce((a, b) => a + b.count, 0);
-                    if (typeCtx) {
-                        this.charts.type = new Chart(typeCtx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: this.data.by_type.map(t => t.label),
-                                datasets: [{
-                                    data: this.data.by_type.map(t => t.count),
-                                    backgroundColor: this.data.by_type.map(t => t.color),
-                                    borderWidth: 0,
-                                    hoverOffset: 6,
-                                    spacing: 2
-                                }]
-                            },
-                            options: {
-                                ...chartOptions,
-                                cutout: '72%',
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    centerText: { value: total, label: 'Total' },
-                                    legend: {
-                                        position: 'bottom',
-                                        labels: { ...chartOptions.plugins.legend.labels, padding: 20 }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Status Chart (Doughnut with center text)
-                if (this.data.by_status?.length) {
-                    const statusColors = {
-                        'to_consume': '#64748b',
-                        'in_progress': '#f59e0b',
-                        'finished': '#10b981',
-                        'abandoned': '#ef4444'
-                    };
-                    const statusCtx = document.getElementById('statusChart');
-                    const finished = this.data.by_status.find(s => s.status === 'finished')?.count || 0;
-                    const total = this.data.by_status.reduce((a, b) => a + b.count, 0);
-                    const pct = total > 0 ? Math.round((finished / total) * 100) : 0;
-                    if (statusCtx) {
-                        this.charts.status = new Chart(statusCtx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: this.data.by_status.map(s => s.label),
-                                datasets: [{
-                                    data: this.data.by_status.map(s => s.count),
-                                    backgroundColor: this.data.by_status.map(s => statusColors[s.status] || '#64748b'),
-                                    borderWidth: 0,
-                                    hoverOffset: 6,
-                                    spacing: 2
-                                }]
-                            },
-                            options: {
-                                ...chartOptions,
-                                cutout: '72%',
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    centerText: { value: pct + '%', label: 'Completed' },
-                                    legend: {
-                                        position: 'bottom',
-                                        labels: { ...chartOptions.plugins.legend.labels, padding: 20 }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Monthly Activity Chart
                 if (this.data.monthly_activity?.length) {
                     const activityCtx = document.getElementById('activityChart');
                     if (activityCtx) {
+                        const ctx = activityCtx.getContext('2d');
+                        const addedGrad = ctx.createLinearGradient(0, 0, 0, 280);
+                        addedGrad.addColorStop(0, 'rgba(99, 102, 241, 0.9)');
+                        addedGrad.addColorStop(1, 'rgba(99, 102, 241, 0.3)');
+                        const finishedGrad = ctx.createLinearGradient(0, 0, 0, 280);
+                        finishedGrad.addColorStop(0, 'rgba(16, 185, 129, 0.9)');
+                        finishedGrad.addColorStop(1, 'rgba(16, 185, 129, 0.3)');
+
                         this.charts.activity = new Chart(activityCtx, {
                             type: 'bar',
                             data: {
@@ -178,320 +237,64 @@
                                     {
                                         label: 'Added',
                                         data: this.data.monthly_activity.map(m => m.added),
-                                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                                        backgroundColor: addedGrad,
                                         hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
-                                        borderRadius: 6,
+                                        borderRadius: 8,
                                         borderSkipped: false,
-                                        barPercentage: 0.7,
-                                        categoryPercentage: 0.8
+                                        barPercentage: 0.5,
+                                        categoryPercentage: 0.75
                                     },
                                     {
                                         label: 'Finished',
                                         data: this.data.monthly_activity.map(m => m.finished),
-                                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                                        backgroundColor: finishedGrad,
                                         hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
-                                        borderRadius: 6,
+                                        borderRadius: 8,
                                         borderSkipped: false,
-                                        barPercentage: 0.7,
-                                        categoryPercentage: 0.8
+                                        barPercentage: 0.5,
+                                        categoryPercentage: 0.75
                                     }
                                 ]
                             },
                             options: {
-                                ...chartOptions,
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(2, 6, 23, 0.95)',
+                                        titleColor: '#f1f5f9',
+                                        titleFont: { size: 13, weight: '600' },
+                                        bodyColor: '#94a3b8',
+                                        bodyFont: { size: 12 },
+                                        borderColor: 'rgba(99, 102, 241, 0.2)',
+                                        borderWidth: 1,
+                                        padding: { x: 14, y: 10 },
+                                        cornerRadius: 12,
+                                        displayColors: true,
+                                        boxWidth: 8,
+                                        boxHeight: 8,
+                                        boxPadding: 4
+                                    }
+                                },
+                                animation: { duration: 1200, easing: 'easeOutQuart' },
                                 scales: {
                                     x: {
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11, weight: '500' },
-                                            padding: 8
-                                        },
+                                        ticks: { color: '#475569', font: { size: 11, weight: '500' }, padding: 8 },
                                         grid: { display: false },
                                         border: { display: false }
                                     },
                                     y: {
                                         beginAtZero: true,
                                         ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11 },
-                                            padding: 12,
-                                            stepSize: 1,
-                                            callback: (value) => Number.isInteger(value) ? value : ''
-                                        },
-                                        grid: {
-                                            color: 'rgba(51, 65, 85, 0.4)',
-                                            drawBorder: false,
-                                            lineWidth: 1
-                                        },
-                                        border: { display: false, dash: [4, 4] }
-                                    }
-                                },
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    legend: {
-                                        position: 'top',
-                                        align: 'end',
-                                        labels: { ...chartOptions.plugins.legend.labels, padding: 24 }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Rating Distribution Chart (1-5 scale)
-                if (this.data.rating_distribution?.length) {
-                    const ratingCtx = document.getElementById('ratingChart');
-                    if (ratingCtx) {
-                        const ratingData = Array.from({ length: 5 }, (_, i) => {
-                            const rating = i + 1;
-                            const found = this.data.rating_distribution.find(r => Math.floor(r.rating) === rating);
-                            return found?.count || 0;
-                        });
-
-                        const gradient = ratingCtx.getContext('2d').createLinearGradient(0, 0, 0, 200);
-                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.9)');
-                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0.6)');
-
-                        this.charts.rating = new Chart(ratingCtx, {
-                            type: 'bar',
-                            data: {
-                                labels: ['1', '2', '3', '4', '5'],
-                                datasets: [{
-                                    label: 'Ratings',
-                                    data: ratingData,
-                                    backgroundColor: gradient,
-                                    hoverBackgroundColor: 'rgba(251, 191, 36, 1)',
-                                    borderRadius: 8,
-                                    borderSkipped: false,
-                                    barPercentage: 0.65
-                                }]
-                            },
-                            options: {
-                                ...chartOptions,
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    legend: { display: false }
-                                },
-                                scales: {
-                                    x: {
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11, weight: '500' },
-                                            padding: 8
-                                        },
-                                        grid: { display: false },
-                                        border: { display: false }
-                                    },
-                                    y: {
-                                        beginAtZero: true,
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11 },
-                                            padding: 12,
-                                            stepSize: 1,
-                                            callback: (value) => Number.isInteger(value) ? value : ''
-                                        },
-                                        grid: {
-                                            color: 'rgba(51, 65, 85, 0.4)',
-                                            lineWidth: 1
-                                        },
-                                        border: { display: false }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Release Year Chart (Area)
-                if (this.data.by_release_year?.length) {
-                    const yearCtx = document.getElementById('yearChart');
-                    if (yearCtx) {
-                        const ctx = yearCtx.getContext('2d');
-                        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
-                        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
-                        gradient.addColorStop(1, 'rgba(99, 102, 241, 0.02)');
-
-                        this.charts.year = new Chart(yearCtx, {
-                            type: 'line',
-                            data: {
-                                labels: this.data.by_release_year.map(y => y.year.toString()),
-                                datasets: [{
-                                    label: 'Media',
-                                    data: this.data.by_release_year.map(y => y.count),
-                                    borderColor: '#6366f1',
-                                    backgroundColor: gradient,
-                                    borderWidth: 2.5,
-                                    fill: true,
-                                    tension: 0.4,
-                                    pointBackgroundColor: '#6366f1',
-                                    pointBorderColor: '#1e293b',
-                                    pointBorderWidth: 2,
-                                    pointRadius: 4,
-                                    pointHoverRadius: 7,
-                                    pointHoverBackgroundColor: '#818cf8',
-                                    pointHoverBorderWidth: 2
-                                }]
-                            },
-                            options: {
-                                ...chartOptions,
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    legend: { display: false }
-                                },
-                                scales: {
-                                    x: {
-                                        ticks: {
-                                            color: '#64748b',
+                                            color: '#334155',
                                             font: { size: 10 },
-                                            maxRotation: 45,
-                                            padding: 8
-                                        },
-                                        grid: { display: false },
-                                        border: { display: false }
-                                    },
-                                    y: {
-                                        beginAtZero: true,
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11 },
                                             padding: 12,
                                             stepSize: 1,
-                                            callback: (value) => Number.isInteger(value) ? value : ''
+                                            callback: (v) => Number.isInteger(v) ? v : ''
                                         },
-                                        grid: {
-                                            color: 'rgba(51, 65, 85, 0.4)',
-                                            lineWidth: 1
-                                        },
+                                        grid: { color: 'rgba(30, 41, 59, 0.5)', lineWidth: 1 },
                                         border: { display: false }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Weekly Pattern Chart (Polar Area)
-                if (this.data.weekly_pattern?.length) {
-                    const weeklyCtx = document.getElementById('weeklyChart');
-                    if (weeklyCtx) {
-                        const dayColors = [
-                            'rgba(239, 68, 68, 0.75)',
-                            'rgba(249, 115, 22, 0.75)',
-                            'rgba(234, 179, 8, 0.75)',
-                            'rgba(34, 197, 94, 0.75)',
-                            'rgba(20, 184, 166, 0.75)',
-                            'rgba(59, 130, 246, 0.75)',
-                            'rgba(139, 92, 246, 0.75)'
-                        ];
-
-                        this.charts.weekly = new Chart(weeklyCtx, {
-                            type: 'polarArea',
-                            data: {
-                                labels: this.data.weekly_pattern.map(d => d.day),
-                                datasets: [{
-                                    data: this.data.weekly_pattern.map(d => d.count),
-                                    backgroundColor: dayColors,
-                                    borderWidth: 0,
-                                    hoverBackgroundColor: dayColors.map(c => c.replace('0.75', '0.95'))
-                                }]
-                            },
-                            options: {
-                                ...chartOptions,
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    legend: {
-                                        position: 'bottom',
-                                        labels: {
-                                            ...chartOptions.plugins.legend.labels,
-                                            padding: 14,
-                                            font: { size: 10 }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    r: {
-                                        beginAtZero: true,
-                                        ticks: {
-                                            display: false,
-                                            stepSize: 1
-                                        },
-                                        grid: {
-                                            color: 'rgba(51, 65, 85, 0.3)',
-                                            circular: true
-                                        },
-                                        pointLabels: { display: false }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // Yearly Comparison Chart
-                if (this.data.yearly_comparison?.length) {
-                    const yearlyCtx = document.getElementById('yearlyChart');
-                    if (yearlyCtx) {
-                        this.charts.yearly = new Chart(yearlyCtx, {
-                            type: 'bar',
-                            data: {
-                                labels: this.data.yearly_comparison.map(y => y.year.toString()),
-                                datasets: [
-                                    {
-                                        label: 'Added',
-                                        data: this.data.yearly_comparison.map(y => y.added),
-                                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                                        hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
-                                        borderRadius: 6,
-                                        borderSkipped: false,
-                                        barPercentage: 0.7
-                                    },
-                                    {
-                                        label: 'Finished',
-                                        data: this.data.yearly_comparison.map(y => y.finished),
-                                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                                        hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
-                                        borderRadius: 6,
-                                        borderSkipped: false,
-                                        barPercentage: 0.7
-                                    }
-                                ]
-                            },
-                            options: {
-                                ...chartOptions,
-                                scales: {
-                                    x: {
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11, weight: '500' },
-                                            padding: 8
-                                        },
-                                        grid: { display: false },
-                                        border: { display: false }
-                                    },
-                                    y: {
-                                        beginAtZero: true,
-                                        ticks: {
-                                            color: '#64748b',
-                                            font: { size: 11 },
-                                            padding: 12,
-                                            stepSize: 1,
-                                            callback: (value) => Number.isInteger(value) ? value : ''
-                                        },
-                                        grid: {
-                                            color: 'rgba(51, 65, 85, 0.4)',
-                                            lineWidth: 1
-                                        },
-                                        border: { display: false }
-                                    }
-                                },
-                                plugins: {
-                                    ...chartOptions.plugins,
-                                    legend: {
-                                        position: 'top',
-                                        align: 'end',
-                                        labels: { ...chartOptions.plugins.legend.labels, padding: 24 }
                                     }
                                 }
                             }
@@ -505,356 +308,295 @@
 {% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto" x-data="statsPage()">
-    <!-- Header with icon -->
-    <div class="flex items-center gap-4 mb-8">
-        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
-        </div>
-        <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Statistics</h1>
-            <p class="text-slate-400 text-sm">Your media consumption insights</p>
+<div class="px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto" x-data="statsPage()">
+
+    <!-- ============================================ -->
+    <!-- HERO BANNER                                  -->
+    <!-- ============================================ -->
+    <div class="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-10 sm:p-16 mb-10 animate-fade-up">
+        <div class="absolute inset-0 hero-mesh"></div>
+        <!-- Floating orbs with drifting animation -->
+        <div class="absolute top-6 left-10 w-24 h-24 bg-white/8 rounded-full blur-2xl hero-orb" style="animation: orb-drift 10s ease-in-out infinite, glow-pulse 4s ease-in-out infinite;"></div>
+        <div class="absolute bottom-8 right-12 w-36 h-36 bg-pink-300/10 rounded-full blur-3xl hero-orb" style="animation: orb-drift 14s ease-in-out infinite reverse, glow-pulse 5s ease-in-out infinite 1s;"></div>
+        <div class="absolute top-1/3 left-1/4 w-20 h-20 bg-cyan-400/8 rounded-full blur-2xl hero-orb" style="animation: orb-drift 8s ease-in-out infinite 2s, glow-pulse 6s ease-in-out infinite 0.5s;"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 bg-purple-400/8 rounded-full blur-3xl" style="animation: glow-pulse 7s ease-in-out infinite;"></div>
+
+        <div class="relative text-center">
+            <p class="text-xs text-white/50 uppercase tracking-[0.3em] font-semibold mb-6 stat-number">Your Library</p>
+            <p class="text-7xl sm:text-9xl font-black text-white tracking-tighter leading-none mb-2" style="animation: count-up-pulse 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;" x-text="heroNumber"></p>
+            <p class="text-base sm:text-lg text-white/60 font-medium tracking-wide stat-number" style="animation-delay: 0.3s;">media tracked</p>
+
+            {% if stats.total_media > 0 %}
+            <!-- Type distribution bar inside hero -->
+            {% if stats.by_type %}
+            <div class="mt-10 mb-10 max-w-sm sm:max-w-lg mx-auto">
+                <div class="h-2.5 rounded-full overflow-hidden flex bg-white/10">
+                    {% set total_type = stats.by_type | sum(attribute='count') %}
+                    {% for t in stats.by_type %}
+                    {% if t.count > 0 %}
+                    <div class="bar-segment h-full origin-bottom" style="width: {{ (t.count / total_type * 100) | round(1) }}%; background-color: {{ t.color }}; animation: slide-right 1.2s cubic-bezier(0.22, 1, 0.36, 1) {{ loop.index0 * 0.1 }}s both;" title="{{ t.label }}: {{ t.count }}"></div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-4">
+                    {% for t in stats.by_type %}
+                    {% if t.count > 0 %}
+                    <span class="flex items-center gap-1.5 text-xs text-white/40 stat-number" style="animation-delay: {{ 0.5 + loop.index0 * 0.08 }}s;">
+                        <span class="w-2 h-2 rounded-full inline-block" style="background-color: {{ t.color }};"></span>
+                        {{ t.label }} <span class="text-white/65 font-semibold">{{ t.count }}</span>
+                    </span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center justify-center gap-8 sm:gap-14">
+                <div class="stat-number" style="animation-delay: 0.5s;">
+                    <p class="text-2xl sm:text-4xl font-bold text-white tabular-nums" x-text="heroFinished"></p>
+                    <p class="text-xs text-white/45 uppercase tracking-widest mt-1">finished</p>
+                </div>
+                <div class="w-px h-10 bg-white/15"></div>
+                <div class="stat-number" style="animation-delay: 0.6s;">
+                    <p class="text-2xl sm:text-4xl font-bold text-white tabular-nums" x-text="heroInProgress"></p>
+                    <p class="text-xs text-white/45 uppercase tracking-widest mt-1">in progress</p>
+                </div>
+                <div class="w-px h-10 bg-white/15"></div>
+                <div class="stat-number" style="animation-delay: 0.7s;">
+                    <p class="text-2xl sm:text-4xl font-bold text-white tabular-nums" x-text="heroQueued"></p>
+                    <p class="text-xs text-white/45 uppercase tracking-widest mt-1">queued</p>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Hero Stats Grid -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <!-- Total Media -->
-        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-indigo-500/40 transition-all duration-300 overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-indigo-500/20 transition-colors"></div>
-            <div class="relative">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-medium text-indigo-400/80 bg-indigo-500/10 px-2 py-0.5 rounded-full">TOTAL</span>
-                </div>
-                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_media }}</p>
-                <p class="text-slate-500 text-xs mt-1">Media items</p>
+    <!-- ============================================ -->
+    <!-- HIGHLIGHT CARDS                              -->
+    <!-- ============================================ -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div class="animate-fade-up delay-1 glass-card rounded-2xl p-6 sm:p-8 text-center">
+            <div class="w-14 h-14 mx-auto mb-4 bg-blue-500/10 rounded-xl flex items-center justify-center" style="animation: float 6s ease-in-out infinite;">
+                <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
             </div>
+            {% set hours = (stats.total_watch_time_minutes // 60) %}
+            {% set days = hours // 24 %}
+            <p class="text-3xl sm:text-4xl font-black text-white tracking-tight tabular-nums">
+                {% if days > 0 %}{{ days }}<span class="text-lg text-slate-600 font-medium">d</span> {{ hours % 24 }}<span class="text-lg text-slate-600 font-medium">h</span>
+                {% else %}{{ hours }}<span class="text-lg text-slate-600 font-medium">h</span>{% endif %}
+            </p>
+            <p class="text-xs text-slate-500 uppercase tracking-widest mt-2">Watch Time</p>
         </div>
 
-        <!-- Finished -->
-        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-emerald-500/40 transition-all duration-300 overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-emerald-500/20 transition-colors"></div>
-            <div class="relative">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-medium text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-full">DONE</span>
-                </div>
-                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_finished }}</p>
-                <p class="text-slate-500 text-xs mt-1">Completed</p>
+        <div class="animate-fade-up delay-2 glass-card rounded-2xl p-6 sm:p-8 text-center">
+            <div class="w-14 h-14 mx-auto mb-4 bg-emerald-500/10 rounded-xl flex items-center justify-center" style="animation: float 6s ease-in-out infinite 1s;">
+                <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
             </div>
+            <p class="text-3xl sm:text-4xl font-black text-white tracking-tight tabular-nums">{{ "{:,}".format(stats.total_pages_read) }}</p>
+            <p class="text-xs text-slate-500 uppercase tracking-widest mt-2">Pages Read</p>
         </div>
 
-        <!-- In Progress -->
-        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-amber-500/40 transition-all duration-300 overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-amber-500/20 transition-colors"></div>
-            <div class="relative">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-medium text-amber-400/80 bg-amber-500/10 px-2 py-0.5 rounded-full">ACTIVE</span>
-                </div>
-                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{{ stats.total_in_progress }}</p>
-                <p class="text-slate-500 text-xs mt-1">In progress</p>
+        <div class="animate-fade-up delay-3 glass-card rounded-2xl p-6 sm:p-8 text-center">
+            <div class="w-14 h-14 mx-auto mb-4 bg-yellow-500/10 rounded-xl flex items-center justify-center" style="animation: float 6s ease-in-out infinite 2s;">
+                <svg class="w-7 h-7 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
             </div>
-        </div>
-
-        <!-- Average Rating -->
-        <div class="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 rounded-2xl p-4 sm:p-5 border border-slate-700/50 hover:border-yellow-500/40 transition-all duration-300 overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-yellow-500/20 transition-colors"></div>
-            <div class="relative">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                        </svg>
-                    </div>
-                    <span class="text-[10px] font-medium text-yellow-400/80 bg-yellow-500/10 px-2 py-0.5 rounded-full">AVG</span>
-                </div>
-                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">{% if stats.average_rating %}{{ "%.1f"|format(stats.average_rating) }}{% else %}-{% endif %}</p>
-                <p class="text-slate-500 text-xs mt-1">Rating</p>
-            </div>
+            <p class="text-3xl sm:text-4xl font-black text-white tracking-tight">{% if stats.average_rating %}{{ "%.1f"|format(stats.average_rating) }}{% else %}-{% endif %}</p>
+            <p class="text-xs text-slate-500 uppercase tracking-widest mt-2">Avg Rating</p>
         </div>
     </div>
 
-    <!-- Secondary Stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-        <!-- Watch Time -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                    </svg>
+    <!-- ============================================ -->
+    <!-- INSIGHTS ROW (Spotify Wrapped style)         -->
+    <!-- ============================================ -->
+    {% if stats.total_media > 0 %}
+    <div class="reveal grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        {% if stats.top_genres %}
+        <div class="glass-card rounded-2xl p-6 text-center reveal-delay-1">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-3">Top Genre</p>
+            <p class="text-xl font-bold text-white">{{ stats.top_genres[0].name }}</p>
+            <p class="text-xs text-indigo-400 mt-1.5">{{ stats.top_genres[0].count }} items</p>
+        </div>
+        {% endif %}
+        <div class="glass-card rounded-2xl p-6 text-center reveal-delay-2">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-3">Completion Rate</p>
+            <p class="text-xl font-bold text-white" x-text="completionPct + '%'"></p>
+            <p class="text-xs text-emerald-400 mt-1.5">{{ stats.total_finished }} of {{ stats.total_media }}</p>
+        </div>
+        <div class="glass-card rounded-2xl p-6 text-center reveal-delay-3" x-show="busiestDay">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-3">Busiest Day</p>
+            <p class="text-xl font-bold text-white" x-text="busiestDay"></p>
+            <p class="text-xs text-purple-400 mt-1.5">most finishes</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- COMPLETION RING + STREAKS                    -->
+    <!-- ============================================ -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        <div class="reveal glass-card rounded-2xl p-8 sm:p-10 text-center">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-6">Completion</p>
+            <div class="relative w-40 h-40 mx-auto mb-6 ring-glow">
+                <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(30,41,59,0.6)" stroke-width="6"/>
+                    <circle cx="60" cy="60" r="50" fill="none"
+                            stroke="url(#ringGradient)"
+                            stroke-width="6"
+                            stroke-linecap="round"
+                            stroke-dasharray="314"
+                            :stroke-dashoffset="ringOffset"
+                            style="animation: ring-fill 1.8s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;"
+                    />
+                    <defs>
+                        <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#6366f1"/>
+                            <stop offset="50%" stop-color="#a855f7"/>
+                            <stop offset="100%" stop-color="#ec4899"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="text-3xl font-black text-white" x-text="completionPct + '%'"></span>
                 </div>
-                <div class="min-w-0">
-                    {% set hours = (stats.total_watch_time_minutes // 60) %}
-                    {% set days = hours // 24 %}
-                    <p class="text-xl font-bold text-white truncate">{% if days > 0 %}{{ days }}<span class="text-slate-500 text-sm font-medium">d</span> {{ hours % 24 }}<span class="text-slate-500 text-sm font-medium">h</span>{% else %}{{ hours }}<span class="text-slate-500 text-sm font-medium">h</span>{% endif %}</p>
-                    <p class="text-slate-500 text-xs">Watch Time</p>
-                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2">
+                {% for s in stats.by_status %}
+                <span class="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 hover:scale-105
+                    {% if s.status == 'finished' %}bg-emerald-500/10 text-emerald-400
+                    {% elif s.status == 'in_progress' %}bg-amber-500/10 text-amber-400
+                    {% elif s.status == 'to_consume' %}bg-slate-800/80 text-slate-500
+                    {% elif s.status == 'abandoned' %}bg-red-500/10 text-red-400
+                    {% endif %}">
+                    {{ s.label }} <span class="font-bold">{{ s.count }}</span>
+                </span>
+                {% endfor %}
             </div>
         </div>
 
-        <!-- Pages Read -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                    </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xl font-bold text-white truncate">{{ "{:,}".format(stats.total_pages_read) }}</p>
-                    <p class="text-slate-500 text-xs">Pages Read</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Current Streak -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="reveal reveal-delay-1 glass-card rounded-2xl p-8 sm:p-10 text-center">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-6">Streaks</p>
+            <div class="mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-xl flex items-center justify-center
+                    {% if stats.streak and stats.streak.current_streak > 0 %}bg-gradient-to-br from-orange-500/15 to-red-500/15{% else %}bg-slate-800/50{% endif %}"
+                    style="animation: float 5s ease-in-out infinite;">
+                    <svg class="w-8 h-8 {% if stats.streak and stats.streak.current_streak > 0 %}text-orange-400{% else %}text-slate-700{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
                     </svg>
                 </div>
-                <div class="min-w-0">
-                    <p class="text-xl font-bold text-white">{{ stats.streak.current_streak if stats.streak else 0 }}<span class="text-slate-500 text-sm font-medium ml-1">days</span></p>
-                    <p class="text-slate-500 text-xs">Current Streak</p>
-                </div>
+                <p class="text-5xl font-black text-white tabular-nums">{{ stats.streak.current_streak if stats.streak else 0 }}</p>
+                <p class="text-xs text-slate-500 uppercase tracking-widest mt-1.5">day streak</p>
             </div>
-        </div>
-
-        <!-- Best Streak -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/40 hover:bg-slate-800/70 transition-colors">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="border-t border-slate-800/60 pt-5">
+                <div class="flex items-center justify-center gap-2.5">
+                    <svg class="w-4 h-4 text-violet-400/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
                     </svg>
-                </div>
-                <div class="min-w-0">
-                    <p class="text-xl font-bold text-white">{{ stats.streak.longest_streak if stats.streak else 0 }}<span class="text-slate-500 text-sm font-medium ml-1">days</span></p>
-                    <p class="text-slate-500 text-xs">Best Streak</p>
+                    <span class="text-sm text-slate-500">Best: <span class="text-white font-semibold tabular-nums">{{ stats.streak.longest_streak if stats.streak else 0 }}</span> days</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Distribution Charts -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-5">
-        <!-- Media by Type -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500/30 to-purple-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
-                    </svg>
-                </div>
-                <h2 class="text-sm font-semibold text-white">Media by Type</h2>
-            </div>
-            <div class="relative h-56 sm:h-64">
-                <canvas id="typeChart"></canvas>
-            </div>
-            {% if not stats.by_type %}
-            <div class="absolute inset-0 flex items-center justify-center">
-                <p class="text-slate-500 text-sm">No data yet</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Media by Status -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-emerald-500/30 to-teal-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                </div>
-                <h2 class="text-sm font-semibold text-white">Completion Status</h2>
-            </div>
-            <div class="relative h-56 sm:h-64">
-                <canvas id="statusChart"></canvas>
-            </div>
-            {% if not stats.by_status %}
-            <div class="absolute inset-0 flex items-center justify-center">
-                <p class="text-slate-500 text-sm">No data yet</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Monthly Activity -->
-    <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6 mb-5">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-lg flex items-center justify-center">
-                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-            </div>
-            <h2 class="text-sm font-semibold text-white">Monthly Activity</h2>
-            <span class="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">Last 12 months</span>
-        </div>
-        <div class="relative h-64 sm:h-72">
-            <canvas id="activityChart"></canvas>
-        </div>
-        {% if not stats.monthly_activity %}
-        <div class="flex items-center justify-center h-64">
-            <p class="text-slate-500 text-sm">No activity data yet</p>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Genres & Ratings -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mb-5">
-        <!-- Top Genres -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-pink-500/30 to-rose-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                    </svg>
-                </div>
-                <h2 class="text-sm font-semibold text-white">Top Genres</h2>
-            </div>
-            {% if stats.top_genres %}
-            <div class="space-y-3">
-                {% for genre in stats.top_genres %}
-                <div class="flex items-center gap-3 group">
-                    <span class="w-6 h-6 bg-slate-700/60 group-hover:bg-indigo-500/20 rounded-lg flex items-center justify-center text-[10px] text-slate-400 group-hover:text-indigo-400 font-semibold flex-shrink-0 transition-colors">{{ loop.index }}</span>
+    <!-- ============================================ -->
+    <!-- TOP GENRES + RATINGS (side by side on wide)  -->
+    <!-- ============================================ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-10">
+        {% if stats.top_genres %}
+        <div class="reveal glass-card rounded-2xl p-7 sm:p-8">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-6 text-center">Top Genres</p>
+            <div class="space-y-4">
+                {% for genre in stats.top_genres[:5] %}
+                <div class="flex items-center gap-4 group">
+                    <span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300
+                        {% if loop.index == 1 %}bg-yellow-500/15 text-yellow-400 group-hover:bg-yellow-500/25 group-hover:scale-110
+                        {% elif loop.index == 2 %}bg-slate-400/15 text-slate-300 group-hover:bg-slate-400/25 group-hover:scale-110
+                        {% elif loop.index == 3 %}bg-amber-600/15 text-amber-500 group-hover:bg-amber-600/25 group-hover:scale-110
+                        {% else %}bg-slate-800/60 text-slate-600 group-hover:bg-slate-700/60 group-hover:scale-110{% endif %}">
+                        {{ loop.index }}
+                    </span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between mb-1.5">
-                            <span class="text-sm text-white truncate font-medium">{{ genre.name }}</span>
-                            <span class="text-slate-400 text-xs font-medium ml-2 tabular-nums">{{ genre.count }}</span>
+                            <span class="text-sm text-white font-medium truncate">{{ genre.name }}</span>
+                            <span class="text-xs text-slate-600 tabular-nums ml-3 font-medium">{{ genre.count }}</span>
                         </div>
-                        <div class="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700 ease-out" style="width: {{ (genre.count / stats.top_genres[0].count * 100) | int }}%"></div>
+                        <div class="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 genre-bar" style="width: {{ (genre.count / stats.top_genres[0].count * 100) | int }}%; animation-delay: {{ loop.index0 * 0.15 }}s;"></div>
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
-            <div class="flex flex-col items-center justify-center h-48 text-center">
-                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                </svg>
-                <p class="text-slate-500 text-sm">No genre data yet</p>
-            </div>
-            {% endif %}
         </div>
+        {% endif %}
 
-        <!-- Rating Distribution -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-yellow-500/30 to-amber-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                    </svg>
+        {% if stats.rating_distribution %}
+        <div class="reveal reveal-delay-1 glass-card rounded-2xl p-7 sm:p-8">
+            <p class="text-xs text-slate-500 uppercase tracking-widest mb-6 text-center">Ratings</p>
+            <div class="space-y-3.5">
+                {% for star in [5, 4, 3, 2, 1] %}
+                <div class="flex items-center gap-3.5 group" x-data="{ count: ratingCount({{ star }}) }">
+                    <div class="flex items-center gap-0.5 w-16 justify-end flex-shrink-0">
+                        {% for s in range(1, 6) %}
+                        <svg class="w-3.5 h-3.5 transition-transform duration-300 {% if s <= star %}text-yellow-400 group-hover:scale-110{% else %}text-slate-800{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        {% endfor %}
+                    </div>
+                    <div class="flex-1 h-2 bg-slate-800/80 rounded-full overflow-hidden">
+                        <div class="rating-bar h-full rounded-full bg-gradient-to-r from-yellow-500 to-amber-400 group-hover:brightness-110"
+                             :style="'width: ' + (ratingMax > 0 ? (count / ratingMax * 100) : 0) + '%'"></div>
+                    </div>
+                    <span class="text-xs text-slate-600 tabular-nums w-7 text-right font-semibold" x-text="count"></span>
                 </div>
-                <h2 class="text-sm font-semibold text-white">Rating Distribution</h2>
+                {% endfor %}
             </div>
-            <div class="relative h-48 sm:h-56">
-                <canvas id="ratingChart"></canvas>
-            </div>
-            {% if not stats.rating_distribution %}
-            <div class="flex flex-col items-center justify-center h-48 text-center">
-                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-                </svg>
-                <p class="text-slate-500 text-sm">No ratings yet</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Timeline Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mb-5">
-        <!-- Release Years -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <h2 class="text-sm font-semibold text-white">By Release Year</h2>
-            </div>
-            <div class="relative h-56 sm:h-64">
-                <canvas id="yearChart"></canvas>
-            </div>
-            {% if not stats.by_release_year %}
-            <div class="flex flex-col items-center justify-center h-56 text-center">
-                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p class="text-slate-500 text-sm">No release year data</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Year Comparison -->
-        <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-            <div class="flex items-center gap-3 mb-5">
-                <div class="w-8 h-8 bg-gradient-to-br from-violet-500/30 to-purple-500/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                    </svg>
-                </div>
-                <h2 class="text-sm font-semibold text-white">Year Comparison</h2>
-            </div>
-            <div class="relative h-56 sm:h-64">
-                <canvas id="yearlyChart"></canvas>
-            </div>
-            {% if not stats.yearly_comparison %}
-            <div class="flex flex-col items-center justify-center h-56 text-center">
-                <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
-                <p class="text-slate-500 text-sm">No yearly data</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Weekly Pattern -->
-    <div class="bg-slate-800/50 backdrop-blur rounded-2xl border border-slate-700/40 p-5 sm:p-6">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-8 h-8 bg-gradient-to-br from-orange-500/30 to-red-500/30 rounded-lg flex items-center justify-center">
-                <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-            </div>
-            <h2 class="text-sm font-semibold text-white">Weekly Activity Pattern</h2>
-            <span class="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">By day of week</span>
-        </div>
-        <div class="relative h-64 sm:h-72 max-w-sm mx-auto">
-            <canvas id="weeklyChart"></canvas>
-        </div>
-        {% if not stats.weekly_pattern %}
-        <div class="flex flex-col items-center justify-center h-64 text-center">
-            <svg class="w-12 h-12 text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
-            <p class="text-slate-500 text-sm">No weekly data</p>
         </div>
         {% endif %}
     </div>
+
+    <!-- ============================================ -->
+    <!-- MONTHLY ACTIVITY                             -->
+    <!-- ============================================ -->
+    {% if stats.monthly_activity %}
+    <div class="reveal glass-card rounded-2xl p-7 sm:p-8 mb-10">
+        <div class="flex items-center justify-between mb-6">
+            <p class="text-xs text-slate-500 uppercase tracking-widest">Monthly Activity</p>
+            <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span> Added
+                </span>
+                <span class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Finished
+                </span>
+            </div>
+        </div>
+        <div class="relative h-56 sm:h-72">
+            <canvas id="activityChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- EMPTY STATE                                  -->
+    <!-- ============================================ -->
+    {% if stats.total_media == 0 %}
+    <div class="text-center py-24 animate-fade-up">
+        <div class="w-20 h-20 mx-auto mb-6 bg-slate-800/40 rounded-2xl flex items-center justify-center" style="animation: float 5s ease-in-out infinite;">
+            <svg class="w-10 h-10 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-white mb-3">No stats yet</h2>
+        <p class="text-sm text-slate-600 max-w-sm mx-auto">Start tracking your media to see your insights here.</p>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

@@ -99,6 +99,9 @@ class RecommendationEngine:
         self._dismissed_embeddings: list[list[float]] = []
         # LRU cache with max 500 entries to prevent unbounded memory growth on 6GB servers
         self._streaming_cache: LRUCache = LRUCache(max_size=500)
+        # Used during completion mode to track existing genre counts
+        self._completion_genre_counts: dict[str, int] = {}
+        self._completion_existing_ids: set[str] = set()
 
     async def generate_recommendations_for_user(
         self,
@@ -329,6 +332,148 @@ class RecommendationEngine:
             self._dismissed_embeddings = []
             self._streaming_cache.clear()
 
+    async def complete_recommendations_streaming(
+        self,
+        user: User,
+    ) -> AsyncIterator[ProgressEvent]:
+        """Complete existing recommendations by filling gaps (genres with < 5 items).
+
+        Unlike full refresh, this keeps existing recommendations and only adds missing ones.
+        Yields ProgressEvent objects for real-time UI updates.
+        """
+        logger.info(f"Starting streaming recommendation completion for user {user.id}")
+        total_count = 0
+
+        try:
+            # Step 1: Build user taste profile (10%)
+            yield ProgressEvent(5, "Building your taste profile...", "profile")
+            await self._build_user_profile(user.id)
+            yield ProgressEvent(10, "Profile built!", "profile")
+
+            # Get existing recommendations and count per genre per type
+            existing_result = await self.db.execute(
+                select(Recommendation).where(
+                    and_(
+                        Recommendation.user_id == user.id,
+                        Recommendation.is_dismissed == False,
+                        Recommendation.added_to_library == False,
+                    )
+                )
+            )
+            existing_recs = existing_result.scalars().all()
+
+            # Build map of existing counts: {(media_type, genre_name): count}
+            existing_genre_counts: dict[tuple[MediaType, str], int] = defaultdict(int)
+            existing_external_ids: set[str] = set()
+            for rec in existing_recs:
+                genre = rec.genre_name or "Découvertes"
+                existing_genre_counts[(rec.media_type, genre)] += 1
+                existing_external_ids.add(rec.external_id)
+
+            # Get dismissed content
+            dismissed_result = await self.db.execute(
+                select(Recommendation.external_id, Recommendation.media_type, Recommendation.description).where(
+                    and_(
+                        Recommendation.user_id == user.id,
+                        Recommendation.is_dismissed == True,
+                    )
+                )
+            )
+            dismissed_rows = dismissed_result.fetchall()
+            dismissed_ids = {(row.external_id, row.media_type) for row in dismissed_rows}
+            await self._build_dismissed_profile(dismissed_rows)
+
+            # Check which types need completion
+            types_to_complete = []
+            for media_type in [MediaType.FILM, MediaType.SERIES, MediaType.BOOK, MediaType.YOUTUBE]:
+                type_genres = {
+                    genre: count
+                    for (mt, genre), count in existing_genre_counts.items()
+                    if mt == media_type
+                }
+                needs_more = any(count < self.RECOMMENDATIONS_PER_GENRE for count in type_genres.values())
+                has_none = not type_genres  # No recommendations at all for this type
+                if needs_more or has_none:
+                    types_to_complete.append(media_type)
+
+            if not types_to_complete:
+                yield ProgressEvent(100, "All recommendations are already complete!", "done", len(existing_recs))
+                return
+
+            all_new_recommendations: list[Recommendation] = []
+
+            # Progress mapping for each type
+            type_progress = {
+                MediaType.FILM: (15, 35, "Finding more films...", "films"),
+                MediaType.SERIES: (40, 55, "Discovering more series...", "series"),
+                MediaType.BOOK: (60, 80, "Searching for more books...", "books"),
+                MediaType.YOUTUBE: (82, 90, "Checking for more videos...", "youtube"),
+            }
+
+            for media_type in [MediaType.FILM, MediaType.SERIES, MediaType.BOOK, MediaType.YOUTUBE]:
+                start_pct, end_pct, msg, step = type_progress[media_type]
+
+                if media_type not in types_to_complete:
+                    yield ProgressEvent(end_pct, f"{step.capitalize()} already complete", step, total_count)
+                    continue
+
+                yield ProgressEvent(start_pct, msg, step)
+                try:
+                    # Pass existing genre counts so _generate_for_type_completing knows what to skip
+                    self._completion_genre_counts = {
+                        genre: count
+                        for (mt, genre), count in existing_genre_counts.items()
+                        if mt == media_type
+                    }
+                    self._completion_existing_ids = existing_external_ids
+
+                    recs = await self._generate_for_type(user, media_type, dismissed_ids)
+
+                    # Filter out recommendations that already exist
+                    new_recs = [r for r in recs if r.external_id not in existing_external_ids]
+                    all_new_recommendations.extend(new_recs)
+                    total_count += len(new_recs)
+                    yield ProgressEvent(end_pct, f"Found {len(new_recs)} new {step}!", step, total_count)
+                except Exception as e:
+                    logger.error(f"Error completing {media_type.value} recommendations: {e}", exc_info=True)
+                    yield ProgressEvent(end_pct, f"{step.capitalize()} complete (with errors)", step, total_count)
+                finally:
+                    self._completion_genre_counts = {}
+                    self._completion_existing_ids = set()
+
+            # Step 6: Save to database (90-100%)
+            yield ProgressEvent(92, "Saving new recommendations...", "saving", total_count)
+
+            if all_new_recommendations:
+                # Only clean old dismissed (no deletion of existing non-dismissed)
+                week_ago = datetime.utcnow() - timedelta(days=7)
+                await self.db.execute(
+                    Recommendation.__table__.delete().where(
+                        and_(
+                            Recommendation.user_id == user.id,
+                            Recommendation.is_dismissed == True,
+                            Recommendation.generated_at < week_ago,
+                        )
+                    )
+                )
+                await self.db.commit()
+                logger.info(f"Saved {total_count} new completion recommendations for user {user.id}")
+
+            yield ProgressEvent(100, f"Done! Added {total_count} new recommendations", "done", total_count)
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Critical error during recommendation completion: {e}", exc_info=True)
+            yield ProgressEvent(100, f"Error: {str(e)}", "error", total_count)
+
+        finally:
+            self._user_profile_embedding = None
+            self._user_genre_scores = {}
+            self._dismissed_embeddings = []
+            self._streaming_cache.clear()
+            self._completion_genre_counts = {}
+            self._completion_existing_ids = set()
+
     async def _build_user_profile(self, user_id: int) -> None:
         """Build user taste profile from rated media."""
         result = await self.db.execute(
@@ -390,6 +535,9 @@ class RecommendationEngine:
         existing_ids = {m.external_id for m in user_media if m.external_id}
         dismissed_for_type = {ext_id for ext_id, mtype in dismissed_ids if mtype == media_type}
         existing_ids.update(dismissed_for_type)
+        # In completion mode, also exclude already-recommended IDs
+        if self._completion_existing_ids:
+            existing_ids.update(self._completion_existing_ids)
 
         if media_type in [MediaType.FILM, MediaType.SERIES]:
             return await self._generate_film_series(user, media_type, user_media, existing_ids)
@@ -411,6 +559,11 @@ class RecommendationEngine:
         recommendations: list[Recommendation] = []
         seen_ids: set[int] = set()
         genre_counts: dict[str, int] = defaultdict(int)
+
+        # In completion mode, pre-seed genre counts from existing recommendations
+        if self._completion_genre_counts:
+            for genre, count in self._completion_genre_counts.items():
+                genre_counts[genre] = count
 
         # === STEP 1: Get user's preferred genres sorted by score ===
         user_genres = sorted(
@@ -695,6 +848,11 @@ class RecommendationEngine:
         seen_ids: set[str] = set()
         seen_titles: set[str] = set()  # Also track titles to avoid duplicates
         genre_counts: dict[str, int] = defaultdict(int)
+
+        # In completion mode, pre-seed genre counts from existing recommendations
+        if self._completion_genre_counts:
+            for genre, count in self._completion_genre_counts.items():
+                genre_counts[genre] = count
 
         # Get user's existing book titles (lowercase for comparison)
         user_book_titles = {m.title.lower() for m in user_media if m.title}

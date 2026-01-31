@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.search import invalidate_user_search_cache
+from src.constants import MAX_UPLOAD_SIZE_BYTES
 from src.auth import get_current_user
 from src.db import get_db
 from src.models.user import User
@@ -55,6 +56,8 @@ async def import_letterboxd(
 
     # Read file content
     content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB.")
     try:
         csv_content = content.decode("utf-8")
     except UnicodeDecodeError:
@@ -327,7 +330,7 @@ async def sync_letterboxd_stream(
 
         except Exception as e:
             logger.exception("Error during Letterboxd sync stream")
-            yield f"data: {json.dumps({'phase': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'phase': 'error', 'message': 'An unexpected error occurred during sync'})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -528,7 +531,7 @@ async def sync_letterboxd_watchlist_stream(
 
         except Exception as e:
             logger.exception("Error during Letterboxd watchlist sync stream")
-            yield f"data: {json.dumps({'phase': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'phase': 'error', 'message': 'An unexpected error occurred during sync'})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -664,6 +667,8 @@ async def import_notion(
 
     # Read file content
     content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB.")
     try:
         csv_content = content.decode("utf-8")
     except UnicodeDecodeError:
@@ -749,6 +754,8 @@ async def import_notion_stream_post(
 
     # Read file content
     content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB.")
     try:
         csv_content = content.decode("utf-8")
     except UnicodeDecodeError:
@@ -856,7 +863,7 @@ async def import_notion_stream_post(
 
         except Exception as e:
             logger.exception("Error during Notion import stream")
-            yield f"data: {json.dumps({'phase': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'phase': 'error', 'message': 'An unexpected error occurred during import'})}\n\n"
 
     return StreamingResponse(
         generate(),

@@ -4,7 +4,7 @@ import asyncio
 import re
 from typing import Any
 
-import httpx
+from src.utils.http_client import get_general_client
 
 
 def extract_video_id(url: str) -> str | None:
@@ -118,33 +118,33 @@ class YouTubeService:
         self, video_url: str, video_id: str
     ) -> dict[str, Any] | None:
         """Fallback extraction using oEmbed API (limited data)."""
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                response = await client.get(
-                    self.oembed_url,
-                    params={"url": video_url, "format": "json"},
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "video_id": video_id,
-                        "title": data.get("title", ""),
-                        "channel_name": data.get("author_name", ""),
-                        "channel_url": data.get("author_url", ""),
-                        "cover_url": self._get_best_thumbnail(video_id),
-                        "external_url": video_url,
-                        "duration_minutes": None,
-                        "duration_seconds": None,
-                        "description": None,
-                        "year": None,
-                        "upload_date": None,
-                        "view_count": None,
-                        "like_count": None,
-                        "tags": [],
-                        "categories": [],
-                    }
-            except Exception:
-                pass
+        client = get_general_client()
+        try:
+            response = await client.get(
+                self.oembed_url,
+                params={"url": video_url, "format": "json"},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "video_id": video_id,
+                    "title": data.get("title", ""),
+                    "channel_name": data.get("author_name", ""),
+                    "channel_url": data.get("author_url", ""),
+                    "cover_url": self._get_best_thumbnail(video_id),
+                    "external_url": video_url,
+                    "duration_minutes": None,
+                    "duration_seconds": None,
+                    "description": None,
+                    "year": None,
+                    "upload_date": None,
+                    "view_count": None,
+                    "like_count": None,
+                    "tags": [],
+                    "categories": [],
+                }
+        except Exception:
+            pass
 
         return None
 

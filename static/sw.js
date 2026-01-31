@@ -1,13 +1,10 @@
 // Yaad Service Worker - Enhanced PWA Support
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `yaad-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `yaad-dynamic-${CACHE_VERSION}`;
-const IMAGE_CACHE = `yaad-images-${CACHE_VERSION}`;
 
 // Static assets to pre-cache during install
 const STATIC_ASSETS = [
-  '/',
-  '/login',
   '/offline',
   '/static/css/output.css',
   '/static/js/app.js',
@@ -20,24 +17,23 @@ const STATIC_ASSETS = [
 
 // Cache size limits
 const DYNAMIC_CACHE_LIMIT = 50;
-const IMAGE_CACHE_LIMIT = 100;
 
 // Trim cache to limit
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
   if (keys.length > maxItems) {
-    await cache.delete(keys[0]);
-    return trimCache(cacheName, maxItems);
+    const excess = keys.slice(0, keys.length - maxItems);
+    await Promise.all(excess.map(key => cache.delete(key)));
   }
 }
 
 // Install event - pre-cache static assets
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -50,8 +46,7 @@ self.addEventListener('activate', (event) => {
           .filter((name) => {
             return name.startsWith('yaad-') &&
                    name !== STATIC_CACHE &&
-                   name !== DYNAMIC_CACHE &&
-                   name !== IMAGE_CACHE;
+                   name !== DYNAMIC_CACHE;
           })
           .map((name) => caches.delete(name))
       );
@@ -67,27 +62,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip cross-origin requests
-  if (url.origin !== location.origin) {
-    // For external images (covers, avatars), try network first, cache fallback
-    if (request.destination === 'image') {
-      event.respondWith(
-        fetch(request)
-          .then((response) => {
-            if (response.ok) {
-              const clone = response.clone();
-              caches.open(IMAGE_CACHE).then((cache) => {
-                cache.put(request, clone);
-                trimCache(IMAGE_CACHE, IMAGE_CACHE_LIMIT);
-              });
-            }
-            return response;
-          })
-          .catch(() => caches.match(request))
-      );
-    }
-    return;
-  }
+  // Skip ALL cross-origin requests - let the browser handle them directly
+  // This avoids CSP connect-src issues with external images (TMDB, YouTube, etc.)
+  if (url.origin !== location.origin) return;
 
   // API requests - network only, no caching
   if (url.pathname.startsWith('/api/')) {
@@ -111,7 +88,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML pages - network first, cache fallback (stale-while-revalidate)
+  // HTML pages - network first, cache fallback
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -127,44 +104,8 @@ self.addEventListener('fetch', (event) => {
       .catch(() => {
         return caches.match(request).then((cached) => {
           if (cached) return cached;
-          // Return offline page if available
           return caches.match('/offline');
         });
       })
   );
-});
-
-// Background sync for failed requests (future enhancement)
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-media') {
-    // Handle background sync for media updates
-    console.log('Background sync triggered');
-  }
-});
-
-// Push notifications (future enhancement)
-self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/static/img/icon-192.png',
-      badge: '/static/img/icon-192.png',
-      vibrate: [100, 50, 100],
-      data: { url: data.url }
-    };
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
-});
-
-// Handle notification click
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  if (event.notification.data && event.notification.data.url) {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url)
-    );
-  }
 });

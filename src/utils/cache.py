@@ -57,6 +57,11 @@ class RedisCache:
             self._connected = False
             return False
 
+    async def ping(self) -> bool:
+        """Ping Redis to check connection health."""
+        client = await self._get_client()
+        return await client.ping()
+
     async def close(self) -> None:
         """Close Redis connection."""
         if self._client:

@@ -62,6 +62,11 @@ document.body.addEventListener('htmx:sendError', (event) => {
     Toast.error('Network error. Please check your connection.');
 });
 
+// Handle HTMX timeout
+document.body.addEventListener('htmx:timeout', (event) => {
+    Toast.error('Request timed out. Please try again.');
+});
+
 // Handle HTMX success messages from headers
 document.body.addEventListener('htmx:afterRequest', (event) => {
     const message = event.detail.xhr.getResponseHeader('HX-Trigger-Message');

@@ -1,5 +1,6 @@
 """User API endpoints."""
 
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth import get_current_user
+from src.constants import MAX_SETTINGS_SIZE_BYTES
 from src.db import get_db
 from src.models.media import BookLocation
 from src.models.user import User
@@ -177,6 +179,9 @@ async def update_user_settings(
     Replaces the entire settings object with the provided one.
     """
     if data.settings is not None:
+        settings_size = len(json.dumps(data.settings))
+        if settings_size > MAX_SETTINGS_SIZE_BYTES:
+            raise HTTPException(status_code=400, detail="Settings data too large")
         user.settings = data.settings
 
     await db.commit()

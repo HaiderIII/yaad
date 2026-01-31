@@ -17,6 +17,8 @@ MAX_RECENT_ITEMS = 20
 MAX_TAGS_LIMIT = 1000
 MAX_GENRES_DISPLAY = 30
 MAX_IMPORT_ITEMS = 5000  # Max items per import operation
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB max file upload
+MAX_SETTINGS_SIZE_BYTES = 64 * 1024  # 64 KB max user settings JSON
 
 # =============================================================================
 # Cache TTLs (in seconds)

@@ -1,6 +1,5 @@
 """Statistics API endpoints."""
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -243,32 +242,18 @@ async def get_stats(
         .order_by(func.date(Media.consumed_at).desc())
     )
 
-    # Execute all queries in parallel
-    (
-        summary_result,
-        type_result,
-        status_result,
-        genre_result,
-        added_result,
-        finished_result,
-        year_result,
-        rating_result,
-        weekly_result,
-        yearly_result,
-        streak_dates_result,
-    ) = await asyncio.gather(
-        db.execute(summary_query),
-        db.execute(type_query),
-        db.execute(status_query),
-        db.execute(genre_query),
-        db.execute(added_query),
-        db.execute(finished_query),
-        db.execute(year_query),
-        db.execute(rating_query),
-        db.execute(weekly_query),
-        db.execute(yearly_query),
-        db.execute(streak_dates_query),
-    )
+    # Execute queries sequentially (AsyncSession is not safe for concurrent use)
+    summary_result = await db.execute(summary_query)
+    type_result = await db.execute(type_query)
+    status_result = await db.execute(status_query)
+    genre_result = await db.execute(genre_query)
+    added_result = await db.execute(added_query)
+    finished_result = await db.execute(finished_query)
+    year_result = await db.execute(year_query)
+    rating_result = await db.execute(rating_query)
+    weekly_result = await db.execute(weekly_query)
+    yearly_result = await db.execute(yearly_query)
+    streak_dates_result = await db.execute(streak_dates_query)
 
     # Process results
     summary = summary_result.one()
